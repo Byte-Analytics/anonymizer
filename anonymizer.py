@@ -6,7 +6,7 @@ can be reversed on optimized files.
 Unlike scripts/transform-csv.py which was this based on, file type configuration is hardcoded, so that
 users are protected from configuration mistakes.
 """
-
+import collections
 import csv
 import sys
 import zipfile
@@ -29,7 +29,7 @@ def random_digits():
     return ''.join(str(random.randint(0, 9)) for _ in range(ENCODED_DIGITS))
 
 
-class Worker:
+class Encoder:
     input_directory: Path
     output_directory: Path
     encoded_mappings: dict[str, str]
@@ -158,12 +158,24 @@ class FormatConfig:
     def get_config(cls, filename):
         return next((config for config in cls.CONFIGS if config.matches(filename)), None)
 
+    @classmethod
+    def get_config_descriptions(cls):
+        carriers = collections.defaultdict(list)
+        for config in cls.CONFIGS:
+            yield {
+                'type': 'MessageDialog',
+                'menuTitle': f'{config.carrier} - {config.file_mask}',
+                'caption': f'Configuration for {config.carrier} - {config.file_mask}',
+                'message': f'Clear columns: {config.clear_columns or "None"}\n'
+                           f'Encode columns: {config.encode_columns or "None"}'
+            }
+
 
 FormatConfig.CONFIGS = [
     # AT&T
     FormatConfig(carrier='AT&T', dialect='excel-tab', delimiter='|', file_mask='rawdataoutput',
-                 clear_columns=set(),
-                 encode_columns={'Foundation Account Name', 'Billing Account Name', 'Wireless Number', 'Number Called To/From'}
+                 clear_columns={'Number Called To/From'},
+                 encode_columns={'Foundation Account Name', 'Billing Account Name', 'Wireless Number'}
                  ),
     # Verizon
     FormatConfig(carrier='Verizon', dialect='excel-tab', file_mask='Wireless Usage Detail',
@@ -180,34 +192,62 @@ FormatConfig.CONFIGS = [
                  encode_columns={'Wireless Number', 'Account Number', 'User Name', 'Invoice Number'}),
 ]
 
+MENU = [
+    {'name': 'Help', 'items': [
+        {
+            'type': 'AboutDialog',
+            'menuTitle': 'About',
+            'name': 'Bytewireless Data Anonymizer',
+            'description': 'Program to anonymize data files for Bytewireless Mobile Optimizer',
+            'version': 'latest',
+            'copyright': '2021',
+            'website': 'https://github.com/reef-technologies/bytewireless-anonymizer',
+            'developer': 'https://reef.pl/',
+            'license': 'GPL v3'
+        }
+    ]},
+    {'name': 'Carrier Configuration', 'items': list(FormatConfig.get_config_descriptions())},
+]
 
-def anonymize():
+
+@Gooey(
+    show_sidebar=True,
+    program_name='Bytewireless Data Encoder',
+    advanced=True,
+    default_size=(900, 600),
+    required_cols=1,
+    optional_cols=1,
+    menu=MENU)
+def main():
     parser = GooeyParser(
-        prog='Bytewireless Data Encoder',
         description='Program to anonymize data files for Bytewireless Mobile Optimizer',
         epilog='Run without arguments to launch the GUI',
     )
-    parser.add_argument('input_directory', metavar='Input directory', widget='DirChooser',
+    subparsers = parser.add_subparsers(dest='action')
+    encode = subparsers.add_parser('Encode', help='Anonymize the data files')
+    encode.add_argument('input_directory', metavar='Input directory', widget='DirChooser',
                         help='Path containing files (ZIP/TSV/CSV) to be processed (anonymized)')
-    parser.add_argument('output_directory', metavar='Output directory', widget='DirChooser',
+    encode.add_argument('output_directory', metavar='Output directory', widget='DirChooser',
                         help='Path to store output files')
-    args = parser.parse_args()
 
-    worker = Worker(args.input_directory, args.output_directory)
-    worker.process_dir(worker.input_directory)
-    worker.finish()
+    decode = subparsers.add_parser('Decode', help='De-anonymize the data files')
+    decode.add_argument('mapping_file', metavar='Mapping file', widget='FileChooser',
+                        help='mapping.tsv file')
+    decode.add_argument('data_files', metavar='Data files', widget='MultiFileChooser',
+                        help='Data files to de-anonymize')
+
+    args = parser.parse_args()
+    print(args)
+    if args.action == 'Encode':
+        worker = Encoder(args.input_directory, args.output_directory)
+        worker.process_dir(worker.input_directory)
+        worker.finish()
+    else:
+        pass
 
 
 if __name__ == '__main__':
-    if len(sys.argv) > 1:
+    if len(sys.argv) > 1 and '--ignore-gooey' in sys.argv:
         # CLI
-        anonymize()
-    else:
-        # GUI
-        Gooey(
-            f=anonymize,
-            show_sidebar=True,
-            program_name='Bytewireless Data Encoder',
-
-
-        )()
+        sys.argv.append('--ignore-gooey')
+    main()
