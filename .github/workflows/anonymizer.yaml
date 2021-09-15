@@ -1,0 +1,84 @@
+name: Build and release anonymizer
+
+on:
+  push:
+    branches: [master]
+    tags: 'v*'  # push events to matching v*, i.e. v1.0, v20.15.10
+
+env:
+  PYTHON_DEFAULT_VERSION: 3.9
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+#          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python ${{ env.PYTHON_DEFAULT_VERSION }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ env.PYTHON_DEFAULT_VERSION }}
+
+      - name: Install wxPython dependencies (required for ubuntu only)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt install make gcc libgtk-3-dev libglib2.0-dev
+
+      - name: Install Python packages
+        run: |
+          python -m pip install --upgrade pip wheel
+          pip install -r requirements.txt
+
+      - name: Pyinstaller
+        run: |
+          pyinstaller build.spec
+
+      - name: Upload a Build Artifact
+        uses: actions/upload-artifact@v2.2.4
+        with:
+          # A file, directory or wildcard pattern that describes what to upload
+          name: anonymizer-${{ matrix.os }}
+          path: dist/*
+          # The desired behavior if no files are found using the provided path.
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    name: "Create release for anonymizer"
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      # We don't need the repo, grab all artifacts from the build stage
+      # The plugin puts each artifact in a folder of `artifactname`
+      - uses: actions/download-artifact@v2
+
+      - name: Display fetched artifacts
+        run: ls -R
+
+      - name: Emit a Github Prerelease
+        uses: "marvinpinto/action-automatic-releases@latest"
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          prerelease: true
+          title: "Release Build"
+          files: |
+            anonymizer-*/*
+
+      - name: Emit a Github Release
+        uses: "marvinpinto/action-automatic-releases@latest"
+        if: "startsWith(github.ref, 'refs/tags/')"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          prerelease: false
+          title: "Development Build"
+          files: |
+            anonymizer-*/*

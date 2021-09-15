@@ -1,0 +1,2 @@
+Gooey==1.0.8.1
+PyInstaller==4.5.1
