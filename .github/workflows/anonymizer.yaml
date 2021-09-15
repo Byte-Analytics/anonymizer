@@ -38,7 +38,7 @@ jobs:
 
       - name: Pyinstaller
         run: |
-          pyinstaller build.specq
+          pyinstaller build.spec
 
       - name: Upload a Build Artifact
         uses: actions/upload-artifact@v2.2.4
