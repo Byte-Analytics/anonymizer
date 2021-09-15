@@ -1,4 +1,3 @@
-#!/usr/bin/env pyinstaller
 import gooey
 import platform
 
@@ -7,7 +6,7 @@ gooey_languages = Tree(os.path.join(gooey_root, 'languages'), prefix='gooey/lang
 gooey_images = Tree(os.path.join(gooey_root, 'images'), prefix='gooey/images')
 
 a = Analysis(
-    ['src/anonymizer.py'],
+    ['anonymizer.py'],
     hiddenimports=[],
     hookspath=None,
     runtime_hooks=None

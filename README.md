@@ -18,12 +18,12 @@ Create virtualenv with Python 3.9, eg.
 
 To build executable version:
 ----------------------------
-* Run `./build` (Linux/macOS) or `pyinstaller build`
+* Run `pyinstaller build.spec`
 
 To run from source (CLI):
 -------------------------
-`python src/anonymizer.py --help`
+`python anonymizer.py --help`
 
 To run from source (GUI):
 -------------------------
-`python src/anonymizer.py`
+`python anonymizer.py`
