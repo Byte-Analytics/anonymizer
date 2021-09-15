@@ -1,3 +1,4 @@
+#!/usr/bin/env pyinstaller
 import gooey
 import platform
 
