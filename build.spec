@@ -1,3 +1,4 @@
+import os, os.path
 import gooey
 import platform
 
@@ -29,5 +30,6 @@ exe = EXE(
     strip=None,
     upx=False,
     console=False,
+    icon=os.path.join('images', 'program_icon.ico')
 )
 
