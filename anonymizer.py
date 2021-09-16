@@ -247,6 +247,9 @@ def main():
 if __name__ == '__main__':
     if len(sys.argv) > 1:
         # CLI
+        IGNORE_COMMAND = '--ignore-gooey'
+        if IGNORE_COMMAND in sys.argv:
+            sys.argv.remove(IGNORE_COMMAND)
         main()
     else:
         # GUI
