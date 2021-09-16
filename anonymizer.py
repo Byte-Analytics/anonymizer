@@ -243,7 +243,7 @@ def main():
                         help='Data files to de-anonymize')
 
     args = parser.parse_args()
-    print(args)
+    # print(args)
     if args.action == 'Encode':
         worker = Encoder(args.input_directory, args.output_directory)
         worker.process_dir(worker.input_directory)
