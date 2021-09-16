@@ -199,7 +199,7 @@ MENU = [
             'menuTitle': 'About',
             'name': 'Byte Analytics Data Anonymizer',
             'description': 'Program to anonymize data files for Byte Analytics Mobile Optimizer',
-            'version': 'latest',
+            'version': 'latest',  # TODO: git tag
             'copyright': '2021',
             'website': 'https://github.com/reef-technologies/byteanalytics-anonymizer',
             'developer': 'https://reef.pl/',
@@ -241,6 +241,7 @@ def main():
         worker.process_dir(worker.input_directory)
         worker.finish()
     else:
+        # TODO: decoding
         pass
 
 
