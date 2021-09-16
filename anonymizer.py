@@ -216,14 +216,6 @@ MENU = [
 ]
 
 
-@Gooey(
-    show_sidebar=True,
-    program_name='Byte Analytics Data Encoder',
-    advanced=True,
-    default_size=(900, 600),
-    required_cols=1,
-    optional_cols=1,
-    menu=MENU)
 def main():
     parser = GooeyParser(
         description='Program to anonymize data files for Byte Analytics Mobile Optimizer',
@@ -253,7 +245,18 @@ def main():
 
 
 if __name__ == '__main__':
-    if len(sys.argv) > 1 and '--ignore-gooey' in sys.argv:
+    if len(sys.argv) > 1:
         # CLI
-        sys.argv.append('--ignore-gooey')
-    main()
+        main()
+    else:
+        # GUI
+        Gooey(
+            f=main,
+            show_sidebar=True,
+            program_name='Byte Analytics Data Encoder',
+            advanced=True,
+            default_size=(900, 600),
+            required_cols=1,
+            optional_cols=1,
+            menu=MENU
+        )()
