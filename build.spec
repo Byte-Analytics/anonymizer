@@ -12,7 +12,7 @@ a = Analysis(
     runtime_hooks=None
 )
 pyz = PYZ(a.pure)
-name = 'bytewireless-encoder-{}'.format(platform.platform(aliased=True, terse=True).split('-', maxsplit=1)[0])
+name = 'byteanalytics-encoder-{}'.format(platform.platform(aliased=True, terse=True).split('-', maxsplit=1)[0])
 options = [('u', None, 'OPTION')]
 
 exe = EXE(

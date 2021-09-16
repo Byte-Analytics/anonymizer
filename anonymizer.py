@@ -197,22 +197,28 @@ MENU = [
         {
             'type': 'AboutDialog',
             'menuTitle': 'About',
-            'name': 'Bytewireless Data Anonymizer',
-            'description': 'Program to anonymize data files for Bytewireless Mobile Optimizer',
+            'name': 'Byte Analytics Data Anonymizer',
+            'description': 'Program to anonymize data files for Byte Analytics Mobile Optimizer',
             'version': 'latest',
             'copyright': '2021',
-            'website': 'https://github.com/reef-technologies/bytewireless-anonymizer',
+            'website': 'https://github.com/reef-technologies/byteanalytics-anonymizer',
             'developer': 'https://reef.pl/',
             'license': 'GPL v3'
+        },
+        {
+            'type': 'Link',
+            'menuTitle': 'Check for updates',
+            'url': 'https://github.com/reef-technologies/byteanalytics-anonymizer/releases',
         }
     ]},
     {'name': 'Carrier Configuration', 'items': list(FormatConfig.get_config_descriptions())},
+
 ]
 
 
 @Gooey(
     show_sidebar=True,
-    program_name='Bytewireless Data Encoder',
+    program_name='Byte Analytics Data Encoder',
     advanced=True,
     default_size=(900, 600),
     required_cols=1,
@@ -220,7 +226,7 @@ MENU = [
     menu=MENU)
 def main():
     parser = GooeyParser(
-        description='Program to anonymize data files for Bytewireless Mobile Optimizer',
+        description='Program to anonymize data files for Byte Analytics Mobile Optimizer',
         epilog='Run without arguments to launch the GUI',
     )
     subparsers = parser.add_subparsers(dest='action')
