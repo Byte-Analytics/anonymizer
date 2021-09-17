@@ -15,9 +15,10 @@ jobs:
       fail-fast: false
       matrix:
         os:
-#          - ubuntu-latest
-          - macos-latest
           - windows-latest
+# Linux and MacOS not needed right now
+#          - ubuntu-latest
+#          - macos-latest
     steps:
       - uses: actions/checkout@v2
 

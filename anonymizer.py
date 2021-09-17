@@ -12,13 +12,13 @@ import sys
 import zipfile
 import random
 import re
-import functools
 from pathlib import Path
 import codecs
 import io
+import os.path
 
 from dataclasses import dataclass
-from typing import Iterable, Optional
+from typing import Iterable, Optional, List
 
 from gooey import Gooey, GooeyParser
 
@@ -29,28 +29,115 @@ def random_digits():
     return ''.join(str(random.randint(0, 9)) for _ in range(ENCODED_DIGITS))
 
 
-class Encoder:
-    input_directory: Path
+class QueueItem:
+    def process(self, worker: 'Worker'):
+        raise NotImplementedError()
+
+    def output_name(self) -> str:
+        raise NotImplementedError()
+
+
+class EncodeItem(QueueItem):
+    def open(self):
+        raise NotImplementedError()
+
+    def process(self, worker: 'Worker'):
+        with self.open() as source:
+            dest = io.StringIO()
+            reader, writer = self.config.csv_reader_writer(source, dest)
+            encode = worker.encode_value
+            mapper = self.config.mapper
+            writer.writeheader()
+            writer.writerows([mapper(row, encode) for row in reader])
+        worker.output_zipfile.writestr(worker.unique_output_name(self.output_name()), dest.getvalue())
+
+
+@dataclass
+class EncodeFile(EncodeItem):
+    config: 'FormatConfig'
+    path: Path
+
+    def output_name(self) -> str:
+        return self.path.name
+
+    def open(self):
+        return open(self.path, "r", encoding='utf-8')
+
+    def __str__(self):
+        return f'{self.path}) -> {self.output_name()}'
+
+
+@dataclass
+class EncodeFileFromZip(EncodeFile):
+    config: 'FormatConfig'
+    zip_path: Path
+    zip_file: zipfile.ZipFile
+    name: str
+
+    def output_name(self) -> str:
+        return f'{self.zip_path.name}/{self.name}'
+
+    def open(self):
+        return codecs.getreader('utf-8')(self.zip_file.open(self.name))
+
+    def __str__(self):
+        return f'{self.zip_path} ({self.name}) -> {self.output_name()}'
+
+
+class Worker:
+    queue: List['QueueItem']
     output_directory: Path
     encoded_mappings: dict[str, str]
     encoded_values: set[str]
     output_zipfile: zipfile.ZipFile
-    output_zipname: str
+    changed_encoded_values: bool = False
+    input_zipfiles: dict[Path, zipfile.ZipFile]
 
-    def __init__(self, input_directory, output_directory, output_zipname=None):
-        self.input_directory = Path(input_directory)
+    def __init__(self, output_directory, output_zipname=None):
         self.output_directory = Path(output_directory)
         self.output_directory.mkdir(parents=True, exist_ok=True)
         self.encoded_mappings = {}
         self.encoded_values = set()
         self.processed_count = 0
-        self.output_zipname = output_zipname or 'output.zip'  # TODO: timestamped name by default?
+        self.input_zipfiles = {}
+        self.queue = []
+        self.output_names = set()
+        output_zipname = output_zipname or 'output.zip'  # TODO: timestamped name by default?
+        self.output_zipfile = zipfile.ZipFile(self.output_directory / output_zipname, mode="w")
 
-    @functools.cached_property
-    def output_zipfile(self):
-        return zipfile.ZipFile(self.output_directory / self.output_zipname, mode="w")  # TODO: options?
+    def unique_output_name(self, name: str):
+        if name in self.output_names:
+            # TODO
+            assert False
+        self.output_names.add(name)
+        return name
 
-    def encode(self, value):
+    def find_files(self, paths, for_encode):
+        paths = collections.deque(Path(x) for x in paths)
+        while paths:
+            path = paths.popleft()
+            if not path.exists():
+                print(f'{path} does not exist, skipping')
+            if path.is_dir():
+                paths.extend(path.iterdir())
+            elif path.suffix.lower().endswith('.zip'):
+                self.input_zipfiles[path] = f = zipfile.ZipFile(path)
+                for name in f.namelist():
+                    if for_encode:
+                        config = FormatConfig.get_config(name)
+                        if config is not None:
+                            self.queue.append(EncodeFileFromZip(config, path, f, name))
+                    else:
+                        self.queue.append((path, name))
+            else:
+                if for_encode:
+                    config = FormatConfig.get_config(path.name)
+                    if config is not None:
+                        self.queue.append(EncodeFile(config, path))
+                else:
+                    self.queue.append((None, path))
+
+    def encode_value(self, value):
         if not value:
             return ''
         try:
@@ -62,56 +149,15 @@ class Encoder:
                     self.encoded_values.add(encoded)
                     break
             self.encoded_mappings[value] = encoded
+            self.changed_encoded_values = True
             return encoded
 
-    def process_file(self, source, relative_path, config):
-        dest = io.StringIO()
-        reader, writer = config.csv_reader_writer(source, dest)
-        encode = self.encode
-        writer.writeheader()
-        writer.writerows(config.mapper(row, encode) for row in reader)
-        data = dest.getvalue().encode('utf-8')
-        self.output_zipfile.writestr(str(relative_path), data)
-        self.processed_count += 1
-
-    def process_zip(self, path: Path):
-        print(f'Processing ZIP {path}')
-
-        with zipfile.ZipFile(path) as input_archive:
-            for name in input_archive.namelist():
-                config = FormatConfig.get_config(name)
-                if config is not None:
-                    print(f'  Processing {path}/{name}')
-                    with input_archive.open(name) as content:
-                        source = codecs.getreader('utf-8')(content)
-                        self.process_file(source, path.relative_to(self.input_directory) / name, config)
-                else:
-                    print(f'  Skipping {path}/{name}')
-
-    def process_dir(self, path):
-        print(f'Processing directory {path}')
-        for p in path.iterdir():
-            self.process(p)
-
-    def process(self, path):
-        if path.is_dir():
-            self.process_dir(path)
-        elif path.is_file() and path.suffix.lower().endswith('.zip'):
-            self.process_zip(path)
-        else:
-            config = FormatConfig.get_config(path.name)
-            if config is not None:
-                print(f'Processing file {path}')
-                with open(path, "r", encoding='utf-8') as source:
-                    self.process_file(source, path.relative_to(self.input_directory), config)
-            else:
-                print(f'Skipping file {path}')
-
-    def finish(self):
+    def process_files(self):
+        for queue_item in self.queue:
+            print(f'Processing {queue_item}')
+            queue_item.process(self)
+            self.processed_count += 1
         print(f'Successfully processed {self.processed_count} data files')
-        if self.processed_count:
-            self.output_zipfile.close()
-            self.save_mappings()
 
     def save_mappings(self):
         # TODO: write to temp and rename?
@@ -119,11 +165,20 @@ class Encoder:
             writer = csv.writer(f, dialect='excel-tab')
             writer.writerows(self.encoded_mappings.items())
 
-    def load_mappings(self):
-        with open(self.output_directory / 'mapping.tsv', mode="r", encoding='utf-8') as f:
+    def load_mappings(self, path):
+        with open(path, mode="r", encoding='utf-8') as f:
             reader = csv.reader(f, dialect='excel-tab')
             self.encoded_mappings = dict(reader)
             self.encoded_values = set(self.encoded_mappings.values())
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.output_zipfile.close()
+        for f in self.input_zipfiles.values():
+            f.close()
+        self.save_mappings()
 
 
 @dataclass
@@ -216,33 +271,53 @@ MENU = [
 ]
 
 
+def add_common_arguments(parser):
+    parser.add_argument('--input_paths', nargs='+', metavar='Input files', widget='MultiFileChooser',
+                        help='Files or directories to be processed', required=True)
+    parser.add_argument('--output_directory', metavar='Output directory', widget='DirChooser',
+                        help='Path to store output files', required=True)
+
+
 def main():
     parser = GooeyParser(
         description='Program to anonymize data files for Byte Analytics Mobile Optimizer',
         epilog='Run without arguments to launch the GUI',
     )
-    subparsers = parser.add_subparsers(dest='action')
+
+    subparsers = parser.add_subparsers(dest='action', required=True)
     encode = subparsers.add_parser('Encode', help='Anonymize the data files')
-    encode.add_argument('input_directory', metavar='Input directory', widget='DirChooser',
-                        help='Path containing files (ZIP/TSV/CSV) to be processed (anonymized)')
-    encode.add_argument('output_directory', metavar='Output directory', widget='DirChooser',
-                        help='Path to store output files')
+    add_common_arguments(encode)
 
     decode = subparsers.add_parser('Decode', help='De-anonymize the data files')
-    decode.add_argument('mapping_file', metavar='Mapping file', widget='FileChooser',
-                        help='mapping.tsv file')
-    decode.add_argument('data_files', metavar='Data files', widget='MultiFileChooser',
-                        help='Data files to de-anonymize')
+    add_common_arguments(decode)
+    decode.add_argument('--mapping_file', metavar='Mapping file', widget='FileChooser', required=True,
+                        help='mapping.tsv file', gooey_options={'wildcard': "Tab separated file (*.tsv)|*.tsv|"})
 
     args = parser.parse_args()
-    # print(args)
     if args.action == 'Encode':
-        worker = Encoder(args.input_directory, args.output_directory)
-        worker.process_dir(worker.input_directory)
-        worker.finish()
+        for_encode = True
+    elif args.action == 'Decode':
+        for_encode = False
     else:
-        # TODO: decoding
-        pass
+        assert False
+
+    with Worker(args.output_directory) as worker:
+        worker.find_files(args.input_paths, for_encode=for_encode)
+        if for_encode and (path := Path(args.output_directory) / 'mapping.tsv').exists():
+            worker.load_mappings(path)
+        elif not for_encode:
+            worker.load_mappings(args.mapping_file)
+        worker.process_files()
+
+
+def get_resource_path(*args):
+    if getattr(sys, 'frozen', False):
+        # MEIPASS explanation:
+        # https://pythonhosted.org/PyInstaller/#run-time-operation
+        resource_dir = getattr(sys, '_MEIPASS', None)
+    else:
+        resource_dir = os.path.normpath(os.path.dirname(__file__))
+    return os.path.join(resource_dir, *args)
 
 
 if __name__ == '__main__':
@@ -256,11 +331,14 @@ if __name__ == '__main__':
         # GUI
         Gooey(
             f=main,
+            language='english',
             show_sidebar=True,
             program_name='Byte Analytics Data Encoder',
             advanced=True,
             default_size=(900, 600),
             required_cols=1,
             optional_cols=1,
-            menu=MENU
+            menu=MENU,
+            image_dir=get_resource_path('images'),
+            language_dir=get_resource_path('gooey', 'languages'),
         )()
