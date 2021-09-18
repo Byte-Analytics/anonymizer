@@ -12,6 +12,7 @@ import sys
 import zipfile
 import random
 import re
+from abc import ABC, abstractmethod
 from pathlib import Path
 import codecs
 import io
@@ -23,23 +24,28 @@ from typing import Iterable, Optional, List
 from gooey import Gooey, GooeyParser
 
 ENCODED_DIGITS = 16
+ENC_PATTERN = re.compile(r"enc-\d{16}")  # make sure this matches ENCODED_DIGITS
 
 
 def random_digits():
     return ''.join(str(random.randint(0, 9)) for _ in range(ENCODED_DIGITS))
 
 
-class QueueItem:
+class QueueItem(ABC):
+    @abstractmethod
     def process(self, worker: 'Worker'):
         raise NotImplementedError()
 
+    @abstractmethod
     def output_name(self) -> str:
         raise NotImplementedError()
 
-
-class EncodeItem(QueueItem):
+    @abstractmethod
     def open(self):
         raise NotImplementedError()
+
+
+class EncodeItem(QueueItem, ABC):
 
     def process(self, worker: 'Worker'):
         with self.open() as source:
@@ -52,11 +58,7 @@ class EncodeItem(QueueItem):
         worker.output_zipfile.writestr(worker.unique_output_name(self.output_name()), dest.getvalue())
 
 
-@dataclass
-class EncodeFile(EncodeItem):
-    config: 'FormatConfig'
-    path: Path
-
+class TextFile(ABC):
     def output_name(self) -> str:
         return self.path.name
 
@@ -67,21 +69,50 @@ class EncodeFile(EncodeItem):
         return f'{self.path}) -> {self.output_name()}'
 
 
-@dataclass
-class EncodeFileFromZip(EncodeFile):
-    config: 'FormatConfig'
-    zip_path: Path
-    zip_file: zipfile.ZipFile
-    name: str
+class FileInZip(ABC):
 
     def output_name(self) -> str:
-        return f'{self.zip_path.name}/{self.name}'
+        return f'{self.zip_path.stem}/{self.name}'
 
     def open(self):
         return codecs.getreader('utf-8')(self.zip_file.open(self.name))
 
     def __str__(self):
         return f'{self.zip_path} ({self.name}) -> {self.output_name()}'
+
+
+class DecodeItem(QueueItem, ABC):
+    def process(self, worker: 'Worker'):
+        with self.open() as source:
+            content = source.read()
+            content = ENC_PATTERN.sub(worker.encoded_replace, content)
+        worker.output_zipfile.writestr(worker.unique_output_name(self.output_name()), content)
+
+
+@dataclass
+class EncodeFile(TextFile, EncodeItem):
+    config: 'FormatConfig'
+    path: Path
+
+
+@dataclass
+class EncodeFileInZip(FileInZip, EncodeItem):
+    config: 'FormatConfig'
+    zip_path: Path
+    zip_file: zipfile.ZipFile
+    name: str
+
+
+@dataclass
+class DecodeFile(TextFile, DecodeItem):
+    path: Path
+
+
+@dataclass
+class DecodeFileInZip(FileInZip, DecodeItem):
+    zip_path: Path
+    zip_file: zipfile.ZipFile
+    name: str
 
 
 class Worker:
@@ -103,14 +134,19 @@ class Worker:
         self.queue = []
         self.output_names = set()
         output_zipname = output_zipname or 'output.zip'  # TODO: timestamped name by default?
-        self.output_zipfile = zipfile.ZipFile(self.output_directory / output_zipname, mode="w")
+        self.output_zipfile = zipfile.ZipFile(self.output_directory / output_zipname, mode="w", compression=zipfile.ZIP_DEFLATED)
 
     def unique_output_name(self, name: str):
         if name in self.output_names:
-            # TODO
-            assert False
+            suffix = 2
+            while f'{name}.{suffix}' in self.output_names:
+                suffix += 1
+            name = f'{name}.{suffix}'
         self.output_names.add(name)
         return name
+
+    def encoded_replace(self, match: re.Match):
+        return self.encoded_mappings[match.group()]
 
     def find_files(self, paths, for_encode):
         paths = collections.deque(Path(x) for x in paths)
@@ -126,16 +162,16 @@ class Worker:
                     if for_encode:
                         config = FormatConfig.get_config(name)
                         if config is not None:
-                            self.queue.append(EncodeFileFromZip(config, path, f, name))
+                            self.queue.append(EncodeFileInZip(config, path, f, name))
                     else:
-                        self.queue.append((path, name))
+                        self.queue.append(DecodeFileInZip(path, f, name))
             else:
                 if for_encode:
                     config = FormatConfig.get_config(path.name)
                     if config is not None:
                         self.queue.append(EncodeFile(config, path))
                 else:
-                    self.queue.append((None, path))
+                    self.queue.append(DecodeFile(path))
 
     def encode_value(self, value):
         if not value:
@@ -153,23 +189,25 @@ class Worker:
             return encoded
 
     def process_files(self):
+        total = len(self.queue)
         for queue_item in self.queue:
-            print(f'Processing {queue_item}')
-            queue_item.process(self)
             self.processed_count += 1
+            print(f'File {self.processed_count}/{total}: {queue_item}')
+            queue_item.process(self)
         print(f'Successfully processed {self.processed_count} data files')
 
     def save_mappings(self):
         # TODO: write to temp and rename?
         with open(self.output_directory / 'mapping.tsv', mode="w", encoding='utf-8') as f:
             writer = csv.writer(f, dialect='excel-tab')
-            writer.writerows(self.encoded_mappings.items())
+            writer.writerows(sorted(self.encoded_mappings.items()))
 
     def load_mappings(self, path):
         with open(path, mode="r", encoding='utf-8') as f:
             reader = csv.reader(f, dialect='excel-tab')
-            self.encoded_mappings = dict(reader)
+            self.encoded_mappings = dict((x[1], x[0]) for x in reader)
             self.encoded_values = set(self.encoded_mappings.values())
+            print(f'Encoded count: {len(self.encoded_mappings)}')
 
     def __enter__(self):
         return self
@@ -234,8 +272,8 @@ FormatConfig.CONFIGS = [
                  ),
     # Verizon
     FormatConfig(carrier='Verizon', dialect='excel-tab', file_mask='Wireless Usage Detail',
-                 clear_columns={'ECPD Profile ID'},
-                 encode_columns={'Wireless Number', 'Account Number', 'User Name', 'Invoice Number', 'Number'}),
+                 clear_columns={'ECPD Profile ID', 'Number'},
+                 encode_columns={'Wireless Number', 'Account Number', 'User Name', 'Invoice Number'}),
     FormatConfig(carrier='Verizon', dialect='excel-tab', file_mask='Acct & Wireless Charges Detail Summary Usage',
                  clear_columns={'ECPD Profile ID', 'Vendor Name / Contact Information'},
                  encode_columns={'Wireless Number', 'Account Number', 'User Name', 'Invoice Number'}),
@@ -271,11 +309,15 @@ MENU = [
 ]
 
 
-def add_common_arguments(parser):
-    parser.add_argument('--input_paths', nargs='+', metavar='Input files', widget='MultiFileChooser',
-                        help='Files or directories to be processed', required=True)
-    parser.add_argument('--output_directory', metavar='Output directory', widget='DirChooser',
-                        help='Path to store output files', required=True)
+def add_common_arguments(parser, add_mapping):
+    parser.add_argument('output_directory', metavar='Output directory', widget='DirChooser',
+                        help='Path to store output files')
+    if add_mapping:
+        parser.add_argument('mapping_file', metavar='Mapping file', widget='FileChooser',
+                            help='mapping.tsv file', gooey_options={'wildcard': "Tab separated file (*.tsv)|*.tsv"})
+
+    parser.add_argument('input', action='store', nargs='+', metavar='Input files', widget='MultiFileChooser',
+                        help='Files or directories to be processed')
 
 
 def main():
@@ -286,23 +328,18 @@ def main():
 
     subparsers = parser.add_subparsers(dest='action', required=True)
     encode = subparsers.add_parser('Encode', help='Anonymize the data files')
-    add_common_arguments(encode)
+    add_common_arguments(encode, False)
 
     decode = subparsers.add_parser('Decode', help='De-anonymize the data files')
-    add_common_arguments(decode)
-    decode.add_argument('--mapping_file', metavar='Mapping file', widget='FileChooser', required=True,
-                        help='mapping.tsv file', gooey_options={'wildcard': "Tab separated file (*.tsv)|*.tsv|"})
+    add_common_arguments(decode, True)
 
+    print(sys.argv)
     args = parser.parse_args()
-    if args.action == 'Encode':
-        for_encode = True
-    elif args.action == 'Decode':
-        for_encode = False
-    else:
-        assert False
+    assert args.action in ('Encode', 'Decode')
+    for_encode = args.action == 'Encode'
 
     with Worker(args.output_directory) as worker:
-        worker.find_files(args.input_paths, for_encode=for_encode)
+        worker.find_files(args.input, for_encode=for_encode)
         if for_encode and (path := Path(args.output_directory) / 'mapping.tsv').exists():
             worker.load_mappings(path)
         elif not for_encode:
@@ -341,4 +378,6 @@ if __name__ == '__main__':
             menu=MENU,
             image_dir=get_resource_path('images'),
             language_dir=get_resource_path('gooey', 'languages'),
+            progress_regex=r"^File (?P<current>\d+)/(?P<total>\d+):$",
+            progress_expr="(current*100.0)/total",
         )()
