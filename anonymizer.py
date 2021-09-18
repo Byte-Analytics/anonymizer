@@ -25,6 +25,7 @@ from gooey import Gooey, GooeyParser
 
 ENCODED_DIGITS = 16
 ENC_PATTERN = re.compile(r"enc-\d{16}")  # make sure this matches ENCODED_DIGITS
+REPORT_PROGRESS = True
 
 
 def random_digits():
@@ -66,7 +67,7 @@ class TextFile(ABC):
         return open(self.path, "r", encoding='utf-8')
 
     def __str__(self):
-        return f'{self.path}) -> {self.output_name()}'
+        return str(self.path)
 
 
 class FileInZip(ABC):
@@ -78,7 +79,7 @@ class FileInZip(ABC):
         return codecs.getreader('utf-8')(self.zip_file.open(self.name))
 
     def __str__(self):
-        return f'{self.zip_path} ({self.name}) -> {self.output_name()}'
+        return f'{self.zip_path} {self.name}'
 
 
 class DecodeItem(QueueItem, ABC):
@@ -123,14 +124,16 @@ class Worker:
     output_zipfile: zipfile.ZipFile
     changed_encoded_values: bool = False
     input_zipfiles: dict[Path, zipfile.ZipFile]
+    processed_count: int = 0
+    filesizes: List[int]
 
     def __init__(self, output_directory, output_zipname=None):
         self.output_directory = Path(output_directory)
         self.output_directory.mkdir(parents=True, exist_ok=True)
         self.encoded_mappings = {}
         self.encoded_values = set()
-        self.processed_count = 0
         self.input_zipfiles = {}
+        self.filesizes = []
         self.queue = []
         self.output_names = set()
         output_zipname = output_zipname or 'output.zip'  # TODO: timestamped name by default?
@@ -154,24 +157,31 @@ class Worker:
             path = paths.popleft()
             if not path.exists():
                 print(f'{path} does not exist, skipping')
-            if path.is_dir():
+            elif path.is_dir():
                 paths.extend(path.iterdir())
             elif path.suffix.lower().endswith('.zip'):
                 self.input_zipfiles[path] = f = zipfile.ZipFile(path)
                 for name in f.namelist():
+                    filesize = f.getinfo(name).file_size
                     if for_encode:
                         config = FormatConfig.get_config(name)
-                        if config is not None:
-                            self.queue.append(EncodeFileInZip(config, path, f, name))
+                        if config is None:
+                            continue
+                        self.queue.append(EncodeFileInZip(config, path, f, name))
                     else:
                         self.queue.append(DecodeFileInZip(path, f, name))
+                    self.filesizes.append(filesize)
             else:
+                filesize = path.stat().st_size
                 if for_encode:
                     config = FormatConfig.get_config(path.name)
-                    if config is not None:
-                        self.queue.append(EncodeFile(config, path))
+                    if config is None:
+                        continue
+                    self.queue.append(EncodeFile(config, path))
                 else:
                     self.queue.append(DecodeFile(path))
+                self.filesizes.append(filesize)
+        print(f'Found {len(self.queue)} files to process')
 
     def encode_value(self, value):
         if not value:
@@ -190,10 +200,15 @@ class Worker:
 
     def process_files(self):
         total = len(self.queue)
-        for queue_item in self.queue:
+        total_file_size = sum(self.filesizes)
+        processed_bytes = 0
+        for queue_item, filesize in zip(self.queue, self.filesizes):
             self.processed_count += 1
-            print(f'File {self.processed_count}/{total}: {queue_item}')
+            print(f'Processing file {queue_item} ({self.processed_count}/{total})')
             queue_item.process(self)
+            processed_bytes += filesize
+            if REPORT_PROGRESS:
+                print(f'Progress {int((processed_bytes * 100) / total_file_size)}%')
         print(f'Successfully processed {self.processed_count} data files')
 
     def save_mappings(self):
@@ -207,7 +222,6 @@ class Worker:
             reader = csv.reader(f, dialect='excel-tab')
             self.encoded_mappings = dict((x[1], x[0]) for x in reader)
             self.encoded_values = set(self.encoded_mappings.values())
-            print(f'Encoded count: {len(self.encoded_mappings)}')
 
     def __enter__(self):
         return self
@@ -333,7 +347,6 @@ def main():
     decode = subparsers.add_parser('Decode', help='De-anonymize the data files')
     add_common_arguments(decode, True)
 
-    print(sys.argv)
     args = parser.parse_args()
     assert args.action in ('Encode', 'Decode')
     for_encode = args.action == 'Encode'
@@ -378,6 +391,8 @@ if __name__ == '__main__':
             menu=MENU,
             image_dir=get_resource_path('images'),
             language_dir=get_resource_path('gooey', 'languages'),
-            progress_regex=r"^File (?P<current>\d+)/(?P<total>\d+):$",
-            progress_expr="(current*100.0)/total",
+            progress_regex=r"^Progress (?P<percent>\d+)%$",
+            progress_expr="percent",
+            disable_progress_bar_animation=True,
+            hide_progress_msg=True,
         )()
