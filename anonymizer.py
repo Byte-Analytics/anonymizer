@@ -280,10 +280,10 @@ class FormatConfig:
 
 FormatConfig.CONFIGS = [
     # AT&T
-    FormatConfig(carrier='AT&T', dialect='excel-tab', delimiter='|', file_mask='rawdataoutput',
-                 clear_columns={'Number Called To/From'},
-                 encode_columns={'Foundation Account Name', 'Billing Account Name', 'Wireless Number'}
-                 ),
+    # FormatConfig(carrier='AT&T', dialect='excel-tab', delimiter='|', file_mask='rawdataoutput',
+    #              clear_columns={'Number Called To/From'},
+    #              encode_columns={'Foundation Account Name', 'Billing Account Name', 'Wireless Number'}
+    #              ),
     # Verizon
     FormatConfig(carrier='Verizon', dialect='excel-tab', file_mask='Wireless Usage Detail',
                  clear_columns={'ECPD Profile ID', 'Number'},
