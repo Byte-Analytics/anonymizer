@@ -220,7 +220,7 @@ class Worker:
     def load_mappings(self, path):
         with open(path, mode="r", encoding='utf-8') as f:
             reader = csv.reader(f, dialect='excel-tab')
-            self.encoded_mappings = dict((x[1], x[0]) for x in reader)
+            self.encoded_mappings = dict((x[1].strip(), x[0].strip()) for x in reader if len(x) == 2)
             self.encoded_values = set(self.encoded_mappings.values())
 
     def __enter__(self):
