@@ -127,7 +127,7 @@ class Worker:
     processed_count: int = 0
     filesizes: List[int]
 
-    def __init__(self, output_directory, output_zipname=None):
+    def __init__(self, output_directory, output_zipname=None, should_save_mappings=True):
         self.output_directory = Path(output_directory)
         self.output_directory.mkdir(parents=True, exist_ok=True)
         self.encoded_mappings = {}
@@ -138,6 +138,7 @@ class Worker:
         self.output_names = set()
         output_zipname = output_zipname or 'output.zip'  # TODO: timestamped name by default?
         self.output_zipfile = zipfile.ZipFile(self.output_directory / output_zipname, mode="w", compression=zipfile.ZIP_DEFLATED)
+        self.should_save_mappings = should_save_mappings
 
     def unique_output_name(self, name: str):
         if name in self.output_names:
@@ -230,7 +231,8 @@ class Worker:
         self.output_zipfile.close()
         for f in self.input_zipfiles.values():
             f.close()
-        self.save_mappings()
+        if self.should_save_mappings:
+            self.save_mappings()
 
 
 @dataclass
@@ -351,7 +353,7 @@ def main():
     assert args.action in ('Encode', 'Decode')
     for_encode = args.action == 'Encode'
 
-    with Worker(args.output_directory) as worker:
+    with Worker(args.output_directory, should_save_mappings=for_encode) as worker:
         worker.find_files(args.input, for_encode=for_encode)
         if for_encode and (path := Path(args.output_directory) / 'mapping.tsv').exists():
             worker.load_mappings(path)
