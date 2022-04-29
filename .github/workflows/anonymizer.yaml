@@ -15,7 +15,7 @@ jobs:
       matrix:
         os:
           - windows-latest
-# Linux and MacOS not needed right now
+# Linux and macOS not needed right now
 #          - ubuntu-latest
 #          - macos-latest
     steps:
@@ -45,8 +45,9 @@ jobs:
         shell: pwsh
         env:
           CODESIGN_PASSWORD: ${{ secrets.CODESIGN_PASSWORD }}
+          SIGNTOOL: "C:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe"
         run: >
-          SIGNTOOL.EXE 
+          "%SIGNTOOL%" 
           /f "codesign\certificate_encrypted.pfx"
           /fd SHA256
           /p "%CODESIGN_PASSWORD%" 
