@@ -8,21 +8,22 @@ users are protected from configuration mistakes.
 """
 import collections
 import csv
-import sys
-import zipfile
-import random
-import re
-from abc import ABC, abstractmethod
-from pathlib import Path
-import codecs
 import io
 import os.path
-
+import random
+import re
+import sys
+import zipfile
+from abc import (
+    ABC,
+    abstractmethod,
+)
 from dataclasses import dataclass
+from pathlib import Path
 from typing import (
     Iterable,
+    Iterator,
     Optional,
-    List,
     Union,
 )
 
@@ -48,6 +49,17 @@ class ZipPath(zipfile.Path):
     @property
     def suffix(self) -> str:
         return Path(str(self)).suffix
+
+    def iterdir(self) -> Iterator['ZipPath']:  # noqa (iterdir is not a word)
+        for entry in super().iterdir():
+            yield ZipPath.from_zip_path(entry)
+
+    @classmethod
+    def from_zip_path(cls, entry: zipfile.Path) -> 'ZipPath':
+        return cls(
+            entry.root.filename,  # noqa (root.filename is like a private interface)
+            at=entry.at,  # noqa (at is like a private interface)
+        )
 
 
 class QueueItem(ABC):
@@ -142,6 +154,7 @@ class Worker:
 
     def find_files(self, paths: list, for_encode: bool) -> None:
         list_of_files = self._list_files(paths)
+        print(f'Listed {len(list_of_files)} files.')
         for file_path in list_of_files:
             if for_encode:
                 config = FormatConfig.get_config(file_path.name)
