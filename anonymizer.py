@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""
-Used to anonymize real tsv/csv files, keeping mapping between original and anonymized data so that process
-can be reversed on optimized files.
 
-Unlike scripts/transform-csv.py which was this based on, file type configuration is hardcoded, so that
-users are protected from configuration mistakes.
-"""
 import collections
 import csv
 import io
@@ -21,9 +15,11 @@ from abc import (
 from dataclasses import dataclass
 from pathlib import Path
 from typing import (
+    ClassVar,
     Iterable,
     Iterator,
     Optional,
+    Type,
     Union,
 )
 
@@ -62,9 +58,12 @@ class ZipPath(zipfile.Path):
         )
 
 
+FilePath = Union[Path, ZipPath]
+
+
 class QueueItem(ABC):
-    def __init__(self, path: Union[Path, ZipPath]):
-        self.path: Union[Path, ZipPath] = path
+    def __init__(self, path: FilePath):
+        self.path: FilePath = path
 
     @abstractmethod
     def process(self, worker: 'Worker'):
@@ -73,20 +72,18 @@ class QueueItem(ABC):
     def output_name(self) -> str:
         return self.path.name
 
+    def __str__(self) -> str:
+        return f'{self.path}'
+
 
 class EncodeItem(QueueItem, ABC):
-    def __init__(self, path: Union[Path, ZipPath], config: 'FormatConfig'):
+    def __init__(self, path: FilePath, config: 'BaseConfig'):
         super().__init__(path)
         self.config = config
 
     def process(self, worker: 'Worker'):
-        with self.path.open() as source:
-            dest = io.StringIO()
-            reader, writer = self.config.csv_reader_writer(source, dest)
-            encode = worker.encode_value
-            mapper = self.config.mapper
-            writer.writeheader()
-            writer.writerows([mapper(row, encode) for row in reader])
+        dest = io.StringIO()
+        self.config.map_file(self.path, worker, dest)
         worker.output_zipfile.writestr(worker.unique_output_name(self.output_name()), dest.getvalue())
 
 
@@ -127,13 +124,13 @@ class Worker:
     def encoded_replace(self, match: re.Match):
         return self.encoded_mappings[match.group()]
 
-    def _list_files(self, paths: Iterable[str]) -> list[Union[Path, ZipPath]]:
+    def _list_files(self, paths: Iterable[str]) -> list[FilePath]:
         """
         Lists all files inside all provided paths, including inside of zip archives.
 
         We'll be using this later on to search for files in the same directories with e.g. header order list.
         """
-        paths: collections.deque[Union[Path, ZipPath]] = collections.deque(Path(x) for x in paths)
+        paths: collections.deque[FilePath] = collections.deque(Path(x) for x in paths)
         all_files = []
         while paths:
             path = paths.popleft()
@@ -157,7 +154,7 @@ class Worker:
         print(f'Listed {len(list_of_files)} files.')
         for file_path in list_of_files:
             if for_encode:
-                config = FormatConfig.get_config(file_path.name)
+                config = ConfigFactory.get_config(file_path.name)
                 if config is None:
                     continue
                 self.queue.append(EncodeItem(file_path, config))
@@ -178,7 +175,6 @@ class Worker:
                     self.encoded_values.add(encoded)
                     break
             self.encoded_mappings[value] = encoded
-            self.changed_encoded_values = True
             return encoded
 
     def process_files(self):
@@ -218,16 +214,70 @@ class Worker:
 
 
 @dataclass
-class FormatConfig:
+class BaseConfig:
+    CONFIG_TYPE: ClassVar[str] = None
+
+    file_mask: str
+
+    def matches(self, filename: str) -> bool:
+        return re.match(self.file_mask, filename) is not None
+
+    @abstractmethod
+    def map_file(self, in_file: FilePath, worker: Worker, destination: io.TextIOBase) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_description(self) -> dict[str, str]:
+        raise NotImplementedError
+
+    def make_description(self, title: str, caption: str, message: str) -> dict[str, str]:
+        return {
+            'type': 'MessageDialog',
+            'menuTitle': title,
+            'caption': caption,
+            'message': message,
+        }
+
+
+class ConfigFactory:
+    REGISTERED: ClassVar[dict[str, Type[BaseConfig]]] = []
+    LOADED: ClassVar[list[BaseConfig]] = []
+
+    @classmethod
+    def register(cls, config_class: Type[BaseConfig]) -> None:
+        cls.REGISTERED[config_class.CONFIG_TYPE] = config_class
+
+    @classmethod
+    def get_config(cls, filename: str) -> Optional[BaseConfig]:
+        return next((config for config in cls.LOADED if config.matches(filename)), None)
+
+    @classmethod
+    def get_config_descriptions(cls) -> Iterator[dict[str, str]]:
+        for config in cls.LOADED:
+            yield config.get_description()
+
+    @classmethod
+    def load_configuration(cls) -> None:
+        pass
+
+
+@dataclass
+class CSVConfig(BaseConfig):
+    CONFIG_TYPE = 'csv-config'
+
     carrier: str
     dialect: str
-    file_mask: str
     clear_columns: Iterable[str]
     encode_columns: Iterable[str]
     delimiter: Optional[str] = None
 
-    def matches(self, filename, flags=0):
-        return re.match(self.file_mask, filename, flags=flags)
+    def map_file(self, in_file: FilePath, worker: Worker, destination: io.BufferedWriter) -> None:
+        with in_file.open() as source:
+            reader, writer = self.csv_reader_writer(source, destination)
+            encode = worker.encode_value
+            mapper = self.mapper
+            writer.writeheader()
+            writer.writerows([mapper(row, encode) for row in reader])
 
     def csv_reader_writer(self, source, dest):
         config = {'dialect': self.dialect}
@@ -245,64 +295,28 @@ class FormatConfig:
             d[key] = encode(d.get(key) or '')
         return d
 
-    @classmethod
-    def get_config(cls, filename):
-        return next((config for config in cls.CONFIGS if config.matches(filename)), None)
-
-    @classmethod
-    def get_config_descriptions(cls):
-        for config in cls.CONFIGS:
-            yield {
-                'type': 'MessageDialog',
-                'menuTitle': f'{config.carrier} - {config.file_mask}',
-                'caption': f'Configuration for {config.carrier} - {config.file_mask}',
-                'message': f'Clear columns: {config.clear_columns or "None"}\n'
-                           f'Encode columns: {config.encode_columns or "None"}'
-            }
+    def get_description(self) -> dict[str, str]:
+        return self.make_description(
+            f'{self.carrier} - {self.file_mask}',
+            f'Configuration for {self.carrier} - {self.file_mask}',
+            f'Clear columns: {self.clear_columns or "None"}\nEncode columns: {self.encode_columns or "None"}',
+        )
 
 
-FormatConfig.CONFIGS = [
-    # AT&T
-    # FormatConfig(carrier='AT&T', dialect='excel-tab', delimiter='|', file_mask='rawdataoutput',
-    #              clear_columns={'Number Called To/From'},
-    #              encode_columns={'Foundation Account Name', 'Billing Account Name', 'Wireless Number'}
-    #              ),
+ConfigFactory.LOADED = [
     # Verizon
-    FormatConfig(carrier='Verizon', dialect='excel-tab', file_mask='Wireless Usage Detail',
-                 clear_columns={'ECPD Profile ID', 'Number'},
-                 encode_columns={'Wireless Number', 'Account Number', 'User Name', 'Invoice Number'}),
-    FormatConfig(carrier='Verizon', dialect='excel-tab', file_mask='Acct & Wireless Charges Detail Summary Usage',
-                 clear_columns={'ECPD Profile ID', 'Vendor Name / Contact Information'},
-                 encode_columns={'Wireless Number', 'Account Number', 'User Name', 'Invoice Number'}),
-    FormatConfig(carrier='Verizon', dialect='excel-tab', file_mask='AccountSummary',
-                 clear_columns={'ECPD Profile ID', 'Bill Name', 'Remittance Address'},
-                 encode_columns={'Account Number', 'Invoice Number'}),
-    FormatConfig(carrier='Verizon', dialect='excel-tab', file_mask='Account & Wireless Summary',
-                 clear_columns={'ECPD Profile ID'},
-                 encode_columns={'Wireless Number', 'Account Number', 'User Name', 'Invoice Number'}),
-]
-
-MENU = [
-    {'name': 'Help', 'items': [
-        {
-            'type': 'AboutDialog',
-            'menuTitle': 'About',
-            'name': 'Byte Analytics Data Anonymizer',
-            'description': 'Program to anonymize data files for Byte Analytics Mobile Optimizer',
-            'version': 'latest',  # TODO: git tag
-            'copyright': '2021',
-            'website': 'https://github.com/reef-technologies/byteanalytics-anonymizer',
-            'developer': 'https://reef.pl/',
-            'license': 'GPL v3'
-        },
-        {
-            'type': 'Link',
-            'menuTitle': 'Check for updates',
-            'url': 'https://github.com/reef-technologies/byteanalytics-anonymizer/releases',
-        }
-    ]},
-    {'name': 'Carrier Configuration', 'items': list(FormatConfig.get_config_descriptions())},
-
+    CSVConfig(carrier='Verizon', dialect='excel-tab', file_mask='Wireless Usage Detail',
+              clear_columns={'ECPD Profile ID', 'Number'},
+              encode_columns={'Wireless Number', 'Account Number', 'User Name', 'Invoice Number'}),
+    CSVConfig(carrier='Verizon', dialect='excel-tab', file_mask='Acct & Wireless Charges Detail Summary Usage',
+              clear_columns={'ECPD Profile ID', 'Vendor Name / Contact Information'},
+              encode_columns={'Wireless Number', 'Account Number', 'User Name', 'Invoice Number'}),
+    CSVConfig(carrier='Verizon', dialect='excel-tab', file_mask='AccountSummary',
+              clear_columns={'ECPD Profile ID', 'Bill Name', 'Remittance Address'},
+              encode_columns={'Account Number', 'Invoice Number'}),
+    CSVConfig(carrier='Verizon', dialect='excel-tab', file_mask='Account & Wireless Summary',
+              clear_columns={'ECPD Profile ID'},
+              encode_columns={'Wireless Number', 'Account Number', 'User Name', 'Invoice Number'}),
 ]
 
 
@@ -354,6 +368,8 @@ def get_resource_path(*args):
 
 
 if __name__ == '__main__':
+    ConfigFactory.load_configuration()
+
     if len(sys.argv) > 1:
         # CLI
         IGNORE_COMMAND = '--ignore-gooey'
@@ -361,6 +377,28 @@ if __name__ == '__main__':
             sys.argv.remove(IGNORE_COMMAND)
         main()
     else:
+        MENU = [
+            {'name': 'Help', 'items': [
+                {
+                    'type': 'AboutDialog',
+                    'menuTitle': 'About',
+                    'name': 'Byte Analytics Data Anonymizer',
+                    'description': 'Program to anonymize data files for Byte Analytics Mobile Optimizer',
+                    'version': 'latest',  # TODO: git tag
+                    'copyright': '2021',
+                    'website': 'https://github.com/reef-technologies/byteanalytics-anonymizer',
+                    'developer': 'https://reef.pl/',
+                    'license': 'GPL v3'
+                },
+                {
+                    'type': 'Link',
+                    'menuTitle': 'Check for updates',
+                    'url': 'https://github.com/reef-technologies/byteanalytics-anonymizer/releases',
+                }
+            ]},
+            {'name': 'Carrier Configuration', 'items': list(ConfigFactory.get_config_descriptions())},
+        ]
+
         # GUI
         Gooey(
             f=main,
