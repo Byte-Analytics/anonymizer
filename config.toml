@@ -1,0 +1,27 @@
+[Verizon]
+# This is a special namespace, items from it are appended to all other namespaces.
+[Verizon.common]
+carrier = 'Verizon'
+config_class = 'csv-config'
+dialect = 'excel-tab'
+
+[Verizon.WirelessUsageDetails]
+file_mask = 'Wireless Usage Detail'
+clear_columns = ['ECPD Profile ID', 'Number']
+encode_columns = ['Wireless Number', 'Account Number', 'User Name', 'Invoice Number']
+
+[Verizon.AcctAndWirelessCharges]
+file_mask = 'Acct & Wireless Charges Detail Summary Usage'
+clear_columns = ['ECPD Profile ID', 'Vendor Name / Contact Information']
+encode_columns = ['Wireless Number', 'Account Number', 'User Name', 'Invoice Number']
+
+[Verizon.AccountSummary]
+file_mask = 'AccountSummary'
+clear_columns = ['ECPD Profile ID', 'Bill Name', 'Remittance Address']
+encode_columns = ['Account Number', 'Invoice Number']
+
+[Verizon.AccountAndWirelessSummary]
+file_mask = 'Account & Wireless Summary'
+clear_columns = ['ECPD Profile ID']
+encode_columns = ['Wireless Number', 'Account Number', 'User Name', 'Invoice Number']
+

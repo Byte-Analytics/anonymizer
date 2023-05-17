@@ -3,6 +3,7 @@
 import collections
 import csv
 import io
+import json
 import os.path
 import random
 import re
@@ -22,6 +23,8 @@ from typing import (
     Type,
     Union,
 )
+
+import toml
 
 from gooey import (
     Gooey,
@@ -218,6 +221,7 @@ class BaseConfig:
     CONFIG_TYPE: ClassVar[str] = None
 
     file_mask: str
+    carrier: str
 
     def matches(self, filename: str) -> bool:
         return re.match(self.file_mask, filename) is not None
@@ -230,18 +234,20 @@ class BaseConfig:
     def get_description(self) -> dict[str, str]:
         raise NotImplementedError
 
-    def make_description(self, title: str, caption: str, message: str) -> dict[str, str]:
+    def make_description(self, message: str) -> dict[str, str]:
         return {
             'type': 'MessageDialog',
-            'menuTitle': title,
-            'caption': caption,
+            'menuTitle': f'{self.carrier} - {self.file_mask}',
+            'caption': f'Configuration for {self.carrier} - {self.file_mask}',
             'message': message,
         }
 
 
 class ConfigFactory:
-    REGISTERED: ClassVar[dict[str, Type[BaseConfig]]] = []
+    REGISTERED: ClassVar[dict[str, Type[BaseConfig]]] = {}
     LOADED: ClassVar[list[BaseConfig]] = []
+    COMMON_TAG: ClassVar[str] = 'common'
+    DEFAULT_CONFIGURATION: ClassVar[Path] = Path('./config.toml')
 
     @classmethod
     def register(cls, config_class: Type[BaseConfig]) -> None:
@@ -249,23 +255,45 @@ class ConfigFactory:
 
     @classmethod
     def get_config(cls, filename: str) -> Optional[BaseConfig]:
+        cls.load_configuration()
         return next((config for config in cls.LOADED if config.matches(filename)), None)
 
     @classmethod
     def get_config_descriptions(cls) -> Iterator[dict[str, str]]:
+        cls.load_configuration()
         for config in cls.LOADED:
             yield config.get_description()
 
     @classmethod
     def load_configuration(cls) -> None:
-        pass
+        if len(cls.LOADED) > 0:
+            return
+
+        data = Path(cls.DEFAULT_CONFIGURATION).read_text()
+        toml_data = toml.loads(data)
+
+        for namespace, values_map in toml_data.items():
+            common_values = values_map.get(cls.COMMON_TAG, {})
+
+            for sub_namespace, parameters in values_map.items():
+                if sub_namespace == cls.COMMON_TAG:
+                    continue
+                full_params: dict = parameters.copy()
+                full_params.update(**common_values)
+
+                config_class_name = full_params.pop('config_class')
+                config_class = cls.REGISTERED[config_class_name]
+                instance = config_class(**full_params)  # noqa
+                cls.LOADED.append(instance)
+
+        print(f'Loaded {len(cls.LOADED)} configuration options.')
 
 
+@ConfigFactory.register
 @dataclass
 class CSVConfig(BaseConfig):
     CONFIG_TYPE = 'csv-config'
 
-    carrier: str
     dialect: str
     clear_columns: Iterable[str]
     encode_columns: Iterable[str]
@@ -297,38 +325,36 @@ class CSVConfig(BaseConfig):
 
     def get_description(self) -> dict[str, str]:
         return self.make_description(
-            f'{self.carrier} - {self.file_mask}',
-            f'Configuration for {self.carrier} - {self.file_mask}',
             f'Clear columns: {self.clear_columns or "None"}\nEncode columns: {self.encode_columns or "None"}',
         )
 
 
-ConfigFactory.LOADED = [
-    # Verizon
-    CSVConfig(carrier='Verizon', dialect='excel-tab', file_mask='Wireless Usage Detail',
-              clear_columns={'ECPD Profile ID', 'Number'},
-              encode_columns={'Wireless Number', 'Account Number', 'User Name', 'Invoice Number'}),
-    CSVConfig(carrier='Verizon', dialect='excel-tab', file_mask='Acct & Wireless Charges Detail Summary Usage',
-              clear_columns={'ECPD Profile ID', 'Vendor Name / Contact Information'},
-              encode_columns={'Wireless Number', 'Account Number', 'User Name', 'Invoice Number'}),
-    CSVConfig(carrier='Verizon', dialect='excel-tab', file_mask='AccountSummary',
-              clear_columns={'ECPD Profile ID', 'Bill Name', 'Remittance Address'},
-              encode_columns={'Account Number', 'Invoice Number'}),
-    CSVConfig(carrier='Verizon', dialect='excel-tab', file_mask='Account & Wireless Summary',
-              clear_columns={'ECPD Profile ID'},
-              encode_columns={'Wireless Number', 'Account Number', 'User Name', 'Invoice Number'}),
-]
-
-
-def add_common_arguments(parser, add_mapping):
-    parser.add_argument('output_directory', metavar='Output directory', widget='DirChooser',
-                        help='Path to store output files')
+def add_common_arguments(parser: GooeyParser, add_mapping: bool):
+    parser.add_argument(
+        'output_directory',
+        metavar='Output directory',
+        widget='DirChooser',
+        help='Path to store output files',
+    )
     if add_mapping:
-        parser.add_argument('mapping_file', metavar='Mapping file', widget='FileChooser',
-                            help='mapping.tsv file', gooey_options={'wildcard': "Tab separated file (*.tsv)|*.tsv"})
+        parser.add_argument(
+            'mapping_file',
+            metavar='Mapping file',
+            widget='FileChooser',
+            help='mapping.tsv file',
+            gooey_options={
+                'wildcard': "Tab separated file (*.tsv)|*.tsv",
+            },
+        )
 
-    parser.add_argument('input', action='store', nargs='+', metavar='Input files', widget='MultiFileChooser',
-                        help='Files or directories to be processed')
+    parser.add_argument(
+        'input',
+        action='store',
+        nargs='+',
+        metavar='Input files',
+        widget='MultiFileChooser',
+        help='Files or directories to be processed',
+    )
 
 
 def main():
@@ -336,17 +362,20 @@ def main():
         description='Program to anonymize data files for Byte Analytics Mobile Optimizer',
         epilog='Run without arguments to launch the GUI',
     )
+    encode_tag = 'Encode'
+    decode_tag = 'Decode'
 
     subparsers = parser.add_subparsers(dest='action', required=True)
-    encode = subparsers.add_parser('Encode', help='Anonymize the data files')
+    encode = subparsers.add_parser(encode_tag, help='Anonymize the data files')
     add_common_arguments(encode, False)
 
-    decode = subparsers.add_parser('Decode', help='De-anonymize the data files')
+    decode = subparsers.add_parser(decode_tag, help='De-anonymize the data files')
     add_common_arguments(decode, True)
 
     args = parser.parse_args()
-    assert args.action in ('Encode', 'Decode')
-    for_encode = args.action == 'Encode'
+
+    assert args.action in (encode_tag, decode_tag)
+    for_encode = args.action == encode_tag
 
     with Worker(args.output_directory, should_save_mappings=for_encode) as worker:
         worker.find_files(args.input, for_encode=for_encode)
@@ -368,8 +397,6 @@ def get_resource_path(*args):
 
 
 if __name__ == '__main__':
-    ConfigFactory.load_configuration()
-
     if len(sys.argv) > 1:
         # CLI
         IGNORE_COMMAND = '--ignore-gooey'
