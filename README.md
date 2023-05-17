@@ -12,7 +12,7 @@ wxPython4.
 On macOS, using `pyenv` you might need to install framework as well
 
 ```shell
-PYTHON_CONFIGURE_OPTS="--enable-framework" pyenv install 3.
+PYTHON_CONFIGURE_OPTS="--enable-framework" pyenv install 3.9
 ```
 
 On linux `--enable-shared` is said to work instead.

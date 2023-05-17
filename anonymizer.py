@@ -269,7 +269,6 @@ class FormatConfig:
 
     @classmethod
     def get_config_descriptions(cls):
-        carriers = collections.defaultdict(list)
         for config in cls.CONFIGS:
             yield {
                 'type': 'MessageDialog',
