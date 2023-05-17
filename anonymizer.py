@@ -19,9 +19,17 @@ import io
 import os.path
 
 from dataclasses import dataclass
-from typing import Iterable, Optional, List
+from typing import (
+    Iterable,
+    Optional,
+    List,
+    Union,
+)
 
-from gooey import Gooey, GooeyParser
+from gooey import (
+    Gooey,
+    GooeyParser,
+)
 
 ENCODED_DIGITS = 16
 ENC_PATTERN = re.compile(r"enc-\d{16}")  # make sure this matches ENCODED_DIGITS
@@ -32,24 +40,35 @@ def random_digits():
     return ''.join(str(random.randint(0, 9)) for _ in range(ENCODED_DIGITS))
 
 
+class ZipPath(zipfile.Path):
+    @property
+    def stem(self) -> str:
+        return Path(str(self)).stem
+
+    @property
+    def suffix(self) -> str:
+        return Path(str(self)).suffix
+
+
 class QueueItem(ABC):
+    def __init__(self, path: Union[Path, ZipPath]):
+        self.path: Union[Path, ZipPath] = path
+
     @abstractmethod
     def process(self, worker: 'Worker'):
         raise NotImplementedError()
 
-    @abstractmethod
     def output_name(self) -> str:
-        raise NotImplementedError()
-
-    @abstractmethod
-    def open(self):
-        raise NotImplementedError()
+        return self.path.name
 
 
 class EncodeItem(QueueItem, ABC):
+    def __init__(self, path: Union[Path, ZipPath], config: 'FormatConfig'):
+        super().__init__(path)
+        self.config = config
 
     def process(self, worker: 'Worker'):
-        with self.open() as source:
+        with self.path.open() as source:
             dest = io.StringIO()
             reader, writer = self.config.csv_reader_writer(source, dest)
             encode = worker.encode_value
@@ -59,86 +78,30 @@ class EncodeItem(QueueItem, ABC):
         worker.output_zipfile.writestr(worker.unique_output_name(self.output_name()), dest.getvalue())
 
 
-class TextFile(ABC):
-    def output_name(self) -> str:
-        return self.path.name
-
-    def open(self):
-        return open(self.path, "r", encoding='utf-8')
-
-    def __str__(self):
-        return str(self.path)
-
-
-class FileInZip(ABC):
-
-    def output_name(self) -> str:
-        return f'{self.zip_path.stem}/{self.name}'
-
-    def open(self):
-        return codecs.getreader('utf-8')(self.zip_file.open(self.name))
-
-    def __str__(self):
-        return f'{self.zip_path} {self.name}'
-
-
 class DecodeItem(QueueItem, ABC):
     def process(self, worker: 'Worker'):
-        with self.open() as source:
+        with self.path.open() as source:
             content = source.read()
             content = ENC_PATTERN.sub(worker.encoded_replace, content)
         worker.output_zipfile.writestr(worker.unique_output_name(self.output_name()), content)
 
 
-@dataclass
-class EncodeFile(TextFile, EncodeItem):
-    config: 'FormatConfig'
-    path: Path
-
-
-@dataclass
-class EncodeFileInZip(FileInZip, EncodeItem):
-    config: 'FormatConfig'
-    zip_path: Path
-    zip_file: zipfile.ZipFile
-    name: str
-
-
-@dataclass
-class DecodeFile(TextFile, DecodeItem):
-    path: Path
-
-
-@dataclass
-class DecodeFileInZip(FileInZip, DecodeItem):
-    zip_path: Path
-    zip_file: zipfile.ZipFile
-    name: str
-
-
 class Worker:
-    queue: List['QueueItem']
-    output_directory: Path
-    encoded_mappings: dict[str, str]
-    encoded_values: set[str]
-    output_zipfile: zipfile.ZipFile
-    changed_encoded_values: bool = False
-    input_zipfiles: dict[Path, zipfile.ZipFile]
-    processed_count: int = 0
-    filesizes: List[int]
-
-    def __init__(self, output_directory, output_zipname=None, should_save_mappings=True):
-        self.output_directory = Path(output_directory)
+    def __init__(self, output_directory: str, output_zipname: Optional[str] = None, should_save_mappings: bool = True):
+        self.output_directory: Path = Path(output_directory)
         self.output_directory.mkdir(parents=True, exist_ok=True)
-        self.encoded_mappings = {}
-        self.encoded_values = set()
-        self.input_zipfiles = {}
-        self.filesizes = []
-        self.queue = []
-        self.output_names = set()
+
+        self.encoded_mappings: dict[str, str] = {}
+        self.encoded_values: set[str] = set()
+        self.input_zipfiles: dict[Path, zipfile.ZipFile] = {}
+        self.filesizes: list[int] = []
+        self.queue: list[QueueItem] = []
+        self.output_names: set[str] = set()
         output_zipname = output_zipname or 'output.zip'  # TODO: timestamped name by default?
-        self.output_zipfile = zipfile.ZipFile(self.output_directory / output_zipname, mode="w", compression=zipfile.ZIP_DEFLATED)
+        self.output_zipfile: zipfile.ZipFile = \
+            zipfile.ZipFile(self.output_directory / output_zipname, mode="w", compression=zipfile.ZIP_DEFLATED)
         self.should_save_mappings = should_save_mappings
+        self.processed_count: int = 0
 
     def unique_output_name(self, name: str):
         if name in self.output_names:
@@ -152,39 +115,45 @@ class Worker:
     def encoded_replace(self, match: re.Match):
         return self.encoded_mappings[match.group()]
 
-    def find_files(self, paths, for_encode):
-        paths = collections.deque(Path(x) for x in paths)
+    def _list_files(self, paths: Iterable[str]) -> list[Union[Path, ZipPath]]:
+        """
+        Lists all files inside all provided paths, including inside of zip archives.
+
+        We'll be using this later on to search for files in the same directories with e.g. header order list.
+        """
+        paths: collections.deque[Union[Path, ZipPath]] = collections.deque(Path(x) for x in paths)
+        all_files = []
         while paths:
             path = paths.popleft()
             if not path.exists():
                 print(f'{path} does not exist, skipping')
-            elif path.is_dir():
-                paths.extend(path.iterdir())
-            elif path.suffix.lower().endswith('.zip'):
-                self.input_zipfiles[path] = f = zipfile.ZipFile(path)
-                for name in f.namelist():
-                    filesize = f.getinfo(name).file_size
-                    if for_encode:
-                        config = FormatConfig.get_config(name)
-                        if config is None:
-                            continue
-                        self.queue.append(EncodeFileInZip(config, path, f, name))
-                    else:
-                        self.queue.append(DecodeFileInZip(path, f, name))
-                    self.filesizes.append(filesize)
-            else:
-                filesize = path.stat().st_size
-                if for_encode:
-                    config = FormatConfig.get_config(path.name)
-                    if config is None:
-                        continue
-                    self.queue.append(EncodeFile(config, path))
-                else:
-                    self.queue.append(DecodeFile(path))
-                self.filesizes.append(filesize)
-        print(f'Found {len(self.queue)} files to process')
+                continue
 
-    def encode_value(self, value):
+            if path.is_dir():
+                paths.extend(path.iterdir())
+                continue
+
+            if path.suffix.lower().endswith('.zip'):
+                paths.extend(ZipPath(path, '').iterdir())
+                continue
+
+            all_files.append(path)
+        return all_files
+
+    def find_files(self, paths: list, for_encode: bool) -> None:
+        list_of_files = self._list_files(paths)
+        for file_path in list_of_files:
+            if for_encode:
+                config = FormatConfig.get_config(file_path.name)
+                if config is None:
+                    continue
+                self.queue.append(EncodeItem(file_path, config))
+            else:
+                self.queue.append(DecodeItem(file_path))
+
+            self.filesizes.append(file_path.stat().st_size)
+
+    def encode_value(self, value: str) -> str:
         if not value:
             return ''
         try:
