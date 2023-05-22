@@ -3,36 +3,22 @@
 import collections
 import csv
 import io
-import json
 import os.path
 import random
 import re
 import sys
 import zipfile
-from abc import (
-    ABC,
-    abstractmethod,
-)
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import (
-    ClassVar,
-    Iterable,
-    Iterator,
-    Optional,
-    Type,
-    Union,
-)
+from typing import Callable, ClassVar, Iterable, Iterator, Optional, Type, Union
 
 import toml
 
-from gooey import (
-    Gooey,
-    GooeyParser,
-)
+from gooey import Gooey, GooeyParser
 
 ENCODED_DIGITS = 16
-ENC_PATTERN = re.compile(r"enc-\d{16}")  # make sure this matches ENCODED_DIGITS
+ENC_PATTERN = re.compile(rb"enc-\d{16}")  # make sure this matches ENCODED_DIGITS
 REPORT_PROGRESS = True
 
 
@@ -85,17 +71,21 @@ class EncodeItem(QueueItem, ABC):
         self.config = config
 
     def process(self, worker: 'Worker'):
-        dest = io.StringIO()
+        # It's really important that output encoding matches the input one. Especially for CSV.
+        dest = io.TextIOWrapper(buffer=io.BytesIO(), encoding=self.config.get_encoding())
         self.config.map_file(self.path, worker, dest)
-        worker.output_zipfile.writestr(worker.unique_output_name(self.output_name()), dest.getvalue())
+        dest.seek(0)
+        # Encoding into bytes to ensure that proper encoding is always used.
+        buffer_data: bytes = dest.read().encode(self.config.get_encoding())
+        worker.save_output(self.output_name(), buffer_data)
 
 
 class DecodeItem(QueueItem, ABC):
     def process(self, worker: 'Worker'):
-        with self.path.open() as source:
+        with self.path.open(mode='rb') as source:  # noqa (mode is supported by all path objects)
             content = source.read()
             content = ENC_PATTERN.sub(worker.encoded_replace, content)
-        worker.output_zipfile.writestr(worker.unique_output_name(self.output_name()), content)
+        worker.save_output(self.output_name(), content)
 
 
 class Worker:
@@ -126,6 +116,12 @@ class Worker:
 
     def encoded_replace(self, match: re.Match):
         return self.encoded_mappings[match.group()]
+
+    def save_output(self, path: str, content: bytes) -> None:
+        output_name = self.unique_output_name(path)
+        # writestr tries to encode string into UTF-8, so we pass bytes instead.
+        assert isinstance(content, bytes)
+        self.output_zipfile.writestr(output_name, content)
 
     def _list_files(self, paths: Iterable[str]) -> list[FilePath]:
         """
@@ -223,6 +219,12 @@ class BaseConfig:
     file_mask: str
     carrier: str
 
+    def get_encoding(self) -> str:
+        # It has to be done in this silly way because it's a dataclass and not a pydantic model,
+        # so we can't have default values before non-default values, even after inheritance.
+        # The same logic sticks to NamedTuple, thus not to bloat the build, this hack is placed.
+        return getattr(self, 'encoding', 'utf-8')
+
     def matches(self, filename: str) -> bool:
         return re.match(self.file_mask, filename) is not None
 
@@ -250,8 +252,9 @@ class ConfigFactory:
     DEFAULT_CONFIGURATION: ClassVar[Path] = Path('./config.toml')
 
     @classmethod
-    def register(cls, config_class: Type[BaseConfig]) -> None:
+    def register(cls, config_class: Type[BaseConfig]) -> Type[BaseConfig]:
         cls.REGISTERED[config_class.CONFIG_TYPE] = config_class
+        return config_class
 
     @classmethod
     def get_config(cls, filename: str) -> Optional[BaseConfig]:
@@ -298,14 +301,25 @@ class CSVConfig(BaseConfig):
     clear_columns: Iterable[str]
     encode_columns: Iterable[str]
     delimiter: Optional[str] = None
+    num_headers: int = 1
+    encoding: str = 'utf-8'
 
     def map_file(self, in_file: FilePath, worker: Worker, destination: io.BufferedWriter) -> None:
-        with in_file.open() as source:
+        with in_file.open(encoding=self.get_encoding()) as source:  # noqa (all FilePath types support encoding on open)
             reader, writer = self.csv_reader_writer(source, destination)
-            encode = worker.encode_value
-            mapper = self.mapper
+            stripped_fieldnames = {key.strip(): key for key in reader.fieldnames}
+
+            # In case of some operators, they can have multiple header rows at the start of the file.
+            additional_headers = []
+            while (len(additional_headers) + 1) < self.num_headers:
+                additional_headers.append(next(reader))
+
             writer.writeheader()
-            writer.writerows([mapper(row, encode) for row in reader])
+            # Write additional header lines back to the anonymized file.
+            writer.writerows(additional_headers)
+            for row in reader:
+                mapped_row = self.mapper(row, worker.encode_value, stripped_fieldnames)
+                writer.writerow(mapped_row)
 
     def csv_reader_writer(self, source, dest):
         config = {'dialect': self.dialect}
@@ -315,13 +329,19 @@ class CSVConfig(BaseConfig):
         writer = csv.DictWriter(f=dest, fieldnames=reader.fieldnames, **config)
         return reader, writer
 
-    def mapper(self, d, encode):
-        d = d.copy()
+    def mapper(
+        self,
+        in_data: dict[str, str],
+        encode: Callable[[str], str],
+        fieldnames_mapping: dict[str, str],
+    ) -> dict[str, str]:
+        # It is possible that each key here requires striping.
+        mapped_data = in_data.copy()
         for key in self.clear_columns:
-            d[key] = ''
+            mapped_data[fieldnames_mapping[key]] = ''
         for key in self.encode_columns:
-            d[key] = encode(d.get(key) or '')
-        return d
+            mapped_data[fieldnames_mapping[key]] = encode(mapped_data.get(fieldnames_mapping[key]) or '')
+        return mapped_data
 
     def get_description(self) -> dict[str, str]:
         return self.make_description(

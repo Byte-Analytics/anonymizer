@@ -25,3 +25,33 @@ file_mask = 'Account & Wireless Summary'
 clear_columns = ['ECPD Profile ID']
 encode_columns = ['Wireless Number', 'Account Number', 'User Name', 'Invoice Number']
 
+[Bell]
+[Bell.common]
+carrier = 'Bell'
+
+[Bell.ACC_file]
+config_class = 'csv-config'
+dialect = 'excel'
+num_headers = 2
+file_mask = '.*_ACC'
+clear_columns = []
+encode_columns = ['Acct Nbr', 'GST RefNbr', 'QST RefNbr']
+encoding = 'iso-8859-1'
+
+[Bell.DLT_file]
+config_class = 'csv-config'
+dialect = 'excel'
+num_headers = 2
+file_mask = '.*_DLT'
+clear_columns = []
+encode_columns = ['Acct Nbr', 'Called Nbr', 'Mobile Nbr']
+encoding = 'iso-8859-1'
+
+[Bell.MOB_file]
+config_class = 'csv-config'
+dialect = 'excel'
+num_headers = 2
+file_mask = '.*_MOB'
+clear_columns = []
+encode_columns = ['Acct Nbr', 'Mobile Nbr', 'Surname', 'Given Name', 'Ref Nbr', 'Group Subscriber', 'Category', 'SubCategory']
+encoding = 'iso-8859-1'
