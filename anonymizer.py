@@ -18,7 +18,7 @@ import toml
 from gooey import Gooey, GooeyParser
 
 ENCODED_DIGITS = 16
-ENC_PATTERN = re.compile(rb"enc-\d{16}")  # make sure this matches ENCODED_DIGITS
+ENC_PATTERN = re.compile(r"enc-\d{16}")  # make sure this matches ENCODED_DIGITS
 REPORT_PROGRESS = True
 
 
@@ -51,8 +51,9 @@ FilePath = Union[Path, ZipPath]
 
 
 class QueueItem(ABC):
-    def __init__(self, path: FilePath):
+    def __init__(self, path: FilePath, config: 'BaseConfig'):
         self.path: FilePath = path
+        self.config = config
 
     @abstractmethod
     def process(self, worker: 'Worker'):
@@ -66,10 +67,6 @@ class QueueItem(ABC):
 
 
 class EncodeItem(QueueItem, ABC):
-    def __init__(self, path: FilePath, config: 'BaseConfig'):
-        super().__init__(path)
-        self.config = config
-
     def process(self, worker: 'Worker'):
         # It's really important that output encoding matches the input one. Especially for CSV.
         dest = io.TextIOWrapper(buffer=io.BytesIO(), encoding=self.config.get_encoding())
@@ -82,13 +79,15 @@ class EncodeItem(QueueItem, ABC):
 
 class DecodeItem(QueueItem, ABC):
     def process(self, worker: 'Worker'):
-        with self.path.open(mode='rb') as source:  # noqa (mode is supported by all path objects)
+        with self.path.open(mode='r', encoding=self.config.get_encoding()) as source:  # noqa (params are supported)
             content = source.read()
             content = ENC_PATTERN.sub(worker.encoded_replace, content)
-        worker.save_output(self.output_name(), content)
+        worker.save_output(self.output_name(), content.encode(self.config.get_encoding()))
 
 
 class Worker:
+    MAPPING_FILE_NAME = 'mapping.tsv'
+
     def __init__(self, output_directory: str, output_zipname: Optional[str] = None, should_save_mappings: bool = True):
         self.output_directory: Path = Path(output_directory)
         self.output_directory.mkdir(parents=True, exist_ok=True)
@@ -152,19 +151,18 @@ class Worker:
         list_of_files = self._list_files(paths)
         print(f'Listed {len(list_of_files)} files.')
         for file_path in list_of_files:
+            config = ConfigFactory.get_config(file_path.name)
+            if config is None:
+                continue
+
             if for_encode:
-                config = ConfigFactory.get_config(file_path.name)
-                if config is None:
-                    continue
                 self.queue.append(EncodeItem(file_path, config))
             else:
-                self.queue.append(DecodeItem(file_path))
+                self.queue.append(DecodeItem(file_path, config))
 
             self.filesizes.append(file_path.stat().st_size)
 
     def encode_value(self, value: str) -> str:
-        if not value:
-            return ''
         try:
             return self.encoded_mappings[value]
         except KeyError:
@@ -191,14 +189,15 @@ class Worker:
 
     def save_mappings(self):
         # TODO: write to temp and rename?
-        with open(self.output_directory / 'mapping.tsv', mode="w", encoding='utf-8') as f:
+        with open(self.output_directory / self.MAPPING_FILE_NAME, mode="w", encoding='utf-8') as f:
             writer = csv.writer(f, dialect='excel-tab')
             writer.writerows(sorted(self.encoded_mappings.items()))
 
     def load_mappings(self, path):
+        # No matter other encodings, mappings are always saved as `utf-8`.
         with open(path, mode="r", encoding='utf-8') as f:
             reader = csv.reader(f, dialect='excel-tab')
-            self.encoded_mappings = dict((x[1].strip(), x[0].strip()) for x in reader if len(x) == 2)
+            self.encoded_mappings = dict((x[1], x[0]) for x in reader if len(x) == 2)
             self.encoded_values = set(self.encoded_mappings.values())
 
     def __enter__(self):
@@ -249,7 +248,7 @@ class ConfigFactory:
     REGISTERED: ClassVar[dict[str, Type[BaseConfig]]] = {}
     LOADED: ClassVar[list[BaseConfig]] = []
     COMMON_TAG: ClassVar[str] = 'common'
-    DEFAULT_CONFIGURATION: ClassVar[Path] = Path('./config.toml')
+    DEFAULT_CONFIGURATION: ClassVar[Path] = Path(__file__).parent / Path('./config.toml')
 
     @classmethod
     def register(cls, config_class: Type[BaseConfig]) -> Type[BaseConfig]:
@@ -272,8 +271,8 @@ class ConfigFactory:
         if len(cls.LOADED) > 0:
             return
 
-        data = Path(cls.DEFAULT_CONFIGURATION).read_text()
-        toml_data = toml.loads(data)
+        config_path = cls.DEFAULT_CONFIGURATION
+        toml_data = toml.loads(config_path.read_text())
 
         for namespace, values_map in toml_data.items():
             common_values = values_map.get(cls.COMMON_TAG, {})
@@ -399,7 +398,7 @@ def main():
 
     with Worker(args.output_directory, should_save_mappings=for_encode) as worker:
         worker.find_files(args.input, for_encode=for_encode)
-        if for_encode and (path := Path(args.output_directory) / 'mapping.tsv').exists():
+        if for_encode and (path := Path(args.output_directory) / Worker.MAPPING_FILE_NAME).exists():
             worker.load_mappings(path)
         elif not for_encode:
             worker.load_mappings(args.mapping_file)
