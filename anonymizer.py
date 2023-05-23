@@ -10,7 +10,7 @@ import sys
 import zipfile
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Callable, ClassVar, Iterable, Iterator, Optional, Type, Union
+from typing import Callable, ClassVar, Iterable, Iterator, NamedTuple, Optional, Type, Union
 
 import toml
 
@@ -287,13 +287,19 @@ class ConfigFactory:
 
 @ConfigFactory.register
 class CSVConfig(BaseConfig):
+    class Condition(NamedTuple):
+        replace_where: str
+        if_column: str
+        has_value: str
+
     CONFIG_TYPE = 'csv-config'
 
     def __init__(
         self,
-        dialect: str,
         clear_columns: Iterable[str],
         encode_columns: Iterable[str],
+        encode_conditional: Optional[Iterable[list[str]]] = None,
+        dialect: str = 'excel',
         delimiter: Optional[str] = None,
         num_headers: int = 1,
         **kwargs,
@@ -302,6 +308,7 @@ class CSVConfig(BaseConfig):
         self.dialect = dialect
         self.clear_columns = clear_columns
         self.encode_columns = encode_columns
+        self.encode_conditional = [self.Condition(*entry) for entry in (encode_conditional or [])]
         self.delimiter = delimiter
         self.num_headers = num_headers
 
@@ -322,12 +329,16 @@ class CSVConfig(BaseConfig):
                 mapped_row = self.mapper(row, worker.encode_value, stripped_fieldnames)
                 writer.writerow(mapped_row)
 
-    def csv_reader_writer(self, source, dest):
+    def csv_config(self) -> dict[str, str]:
         config = {
             'dialect': self.dialect,
         }
         if self.delimiter:
             config['delimiter'] = self.delimiter
+        return config
+
+    def csv_reader_writer(self, source, dest):
+        config = self.csv_config()
         reader = csv.DictReader(f=source, **config)
         writer = csv.DictWriter(f=dest, fieldnames=reader.fieldnames, **config)
         return reader, writer
@@ -344,6 +355,10 @@ class CSVConfig(BaseConfig):
             mapped_data[fieldnames_mapping[key]] = ''
         for key in self.encode_columns:
             mapped_data[fieldnames_mapping[key]] = encode(mapped_data.get(fieldnames_mapping[key]) or '')
+        for condition in self.encode_conditional:
+            if mapped_data[fieldnames_mapping[condition.if_column]].strip() == condition.has_value:
+                mapped_data[fieldnames_mapping[condition.replace_where]] = \
+                    encode(mapped_data.get(fieldnames_mapping[condition.replace_where]) or '')
         return mapped_data
 
     def get_description(self) -> dict[str, str]:

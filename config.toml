@@ -25,6 +25,7 @@ file_mask = 'Account & Wireless Summary'
 clear_columns = ['ECPD Profile ID']
 encode_columns = ['Wireless Number', 'Account Number', 'User Name', 'Invoice Number']
 
+
 [Bell]
 [Bell.common]
 carrier = 'Bell'
@@ -52,6 +53,20 @@ config_class = 'csv-config'
 dialect = 'excel'
 num_headers = 2
 file_mask = '.*_MOB'
-clear_columns = []
-encode_columns = ['Acct Nbr', 'Mobile Nbr', 'Surname', 'Given Name', 'Ref Nbr', 'Group Subscriber', 'Category', 'SubCategory']
+clear_columns = ['Ref Nbr', 'Group Subscriber', 'Category', 'SubCategory']
+encode_columns = ['Acct Nbr', 'Mobile Nbr', 'Surname', 'Given Name']
 encoding = 'iso-8859-1'
+
+
+[ATnT]
+[ATnT.common]
+carrier = 'AT&T'
+
+[ATnT.rawdataoutput_file]
+config_class = 'csv-config'
+delimiter = '|'
+file_mask = 'rawdataoutput_'
+clear_columns = ['Remit To (address)', 'FAN User Defined Label 1', 'FAN User Defined Label 2', 'FAN User Defined Label 3', 'FAN User Defined Label 4', 'Equipment Transaction Number']
+encode_columns = ['Billing Account Number', 'Billing Account Name', 'Wireless Number', 'User Name', 'FAN Invoice Number', 'Data Pooling Rate Plan Code', 'Data Pool Name']
+# Encode value in `Section_3` if `Section_2` contains value `User Name`. We actually need the remaining values.
+encode_conditional = [['Section_3', 'Section_2', 'User Name']]

@@ -14,7 +14,7 @@ class CsvDataLoader(DataLoaderProtocol):
     def load_data_for_comparison(self, in_file: FilePath, config: BaseConfig) -> Any:
         assert isinstance(config, CSVConfig)
         with in_file.open(mode='r', encoding=config.encoding) as f:  # noqa
-            reader = csv.DictReader(f, dialect=config.dialect)
+            reader = csv.DictReader(f, **config.csv_config())  # noqa
             out_lines = []
             for line_dict in reader:
                 out_line_dict = {
@@ -29,6 +29,9 @@ class CsvDataLoader(DataLoaderProtocol):
 class ConfigTester(DataLoaderProtocol):
     def get_file_name(self) -> str:
         raise NotImplementedError
+
+    def assert_encoded_data(self, input_encoded_data: Any) -> None:
+        pass
 
     def test_encode_decode(self, fake_fs):
         input_file_path = pathlib.Path(self.get_file_name())
@@ -52,6 +55,7 @@ class ConfigTester(DataLoaderProtocol):
 
         encoded_content = self.load_data_for_comparison(ZipPath(encoded_file, input_file_path.name), config)
         assert encoded_content != original_content
+        self.assert_encoded_data(encoded_content)
 
         with Worker(
                 output_directory=str(out_file.parent),
