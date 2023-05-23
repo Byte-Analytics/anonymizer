@@ -302,6 +302,7 @@ class CSVConfig(BaseConfig):
         dialect: str = 'excel',
         delimiter: Optional[str] = None,
         num_headers: int = 1,
+        skip_initial_lines: int = 0,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -311,6 +312,7 @@ class CSVConfig(BaseConfig):
         self.encode_conditional = [self.Condition(*entry) for entry in (encode_conditional or [])]
         self.delimiter = delimiter
         self.num_headers = num_headers
+        self.skip_initial_lines = skip_initial_lines
 
     def map_file(self, in_file: FilePath, worker: Worker, destination: io.BufferedWriter) -> None:
         with in_file.open(encoding=self.encoding) as source:  # noqa (all FilePath types support encoding on open)
@@ -338,6 +340,12 @@ class CSVConfig(BaseConfig):
         return config
 
     def csv_reader_writer(self, source, dest):
+        # TODO: consider making it a context manager.
+        # We can have a header that doesn't provide any data. It's rewritten "as is".
+        for _ in range(self.skip_initial_lines):
+            line = source.readline()
+            dest.writelines([line])
+
         config = self.csv_config()
         reader = csv.DictReader(f=source, **config)
         writer = csv.DictWriter(f=dest, fieldnames=reader.fieldnames, **config)

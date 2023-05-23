@@ -1,4 +1,5 @@
 import csv
+import io
 import pathlib
 from typing import Any
 
@@ -11,10 +12,10 @@ class DataLoaderProtocol:
 
 
 class CsvDataLoader(DataLoaderProtocol):
-    def load_data_for_comparison(self, in_file: FilePath, config: BaseConfig) -> Any:
+    def load_data_for_comparison(self, in_file: FilePath, config: BaseConfig) -> list[dict]:
         assert isinstance(config, CSVConfig)
         with in_file.open(mode='r', encoding=config.encoding) as f:  # noqa
-            reader = csv.DictReader(f, **config.csv_config())  # noqa
+            reader, _writer = config.csv_reader_writer(f, io.StringIO())
             out_lines = []
             for line_dict in reader:
                 out_line_dict = {
@@ -27,34 +28,42 @@ class CsvDataLoader(DataLoaderProtocol):
 
 
 class ConfigTester(DataLoaderProtocol):
-    def get_file_name(self) -> str:
+    def get_file_path(self) -> FilePath:
         raise NotImplementedError
 
-    def assert_encoded_data(self, input_encoded_data: Any) -> None:
+    def assert_encoded_data(self, input_encoded_data: list[dict]) -> None:
         pass
 
+    @property
+    def data_directory(self) -> pathlib.Path:
+        return self.base_directory / 'data'
+
+    @property
+    def base_directory(self) -> pathlib.Path:
+        return pathlib.Path(__file__).parent
+
     def test_encode_decode(self, fake_fs):
-        input_file_path = pathlib.Path(self.get_file_name())
-        in_file = pathlib.Path(__file__).parent / 'data' / input_file_path
+        input_file_path = self.get_file_path()
         encoded_file = pathlib.Path(__file__).parent / 'encoded.zip'
         out_file = pathlib.Path(__file__).parent / 'output.zip'
 
         config = ConfigFactory.get_config(input_file_path.name)
         assert config is not None, f'Unable to match config to {input_file_path.name}'
 
-        original_content = self.load_data_for_comparison(in_file, config)
+        original_content = self.load_data_for_comparison(input_file_path, config)
 
         with Worker(
                 output_directory=str(encoded_file.parent),
                 output_zipname=encoded_file.name,
                 should_save_mappings=True,
         ) as encode_worker:
-            encode_item = EncodeItem(path=in_file, config=config)
+            encode_item = EncodeItem(path=input_file_path, config=config)
             encode_item.process(encode_worker)
             encode_worker.save_mappings()
 
         encoded_content = self.load_data_for_comparison(ZipPath(encoded_file, input_file_path.name), config)
         assert encoded_content != original_content
+        assert len(encoded_content) == len(original_content), f'{len(encoded_content)=} vs {len(original_content)=}'
         self.assert_encoded_data(encoded_content)
 
         with Worker(
