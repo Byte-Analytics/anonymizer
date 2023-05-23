@@ -1,0 +1,4 @@
+ECPD Profile ID	Bill Cycle Date	Account Number	Invoice Number	Wireless Number	User Name	Usage Category	Account Authorization Code	Date	Time	Number	Rate	Usage Type	Description	Origination	Destination	Intl. Call Type	Min	Charge	Long Dist./Other Charges	Total
+	Aug 16, 2021	enc-1479211609829366	enc-5029012205720256	enc-9729345087614266	enc-6161371025561254	Voice		07/21	7:15A		Peak	PlanAllow	 	Wallingfor CT	New Haven CT		2	0.00	0.00	0.00
+	Aug 16, 2021	enc-1479211609829366	enc-5029012205720256	enc-9729345087614266	enc-6161371025561254	Voice		07/21	7:21A		Peak	PlanAllow	 	Wallingfor CT	Incoming CL		2	0.00	0.00	0.00
+	Aug 16, 2021	enc-1479211609829366	enc-5029012205720256	enc-9729345087614266	enc-6161371025561254	Voice		07/21	7:25A		Peak	PlanAllow	 	Wallingfor CT	Waterbury CT		3	0.00	0.00	0.00

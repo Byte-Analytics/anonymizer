@@ -1,0 +1,4 @@
+ECPD Profile ID	Bill Cycle Date	Account Number	Invoice Number	Wireless Number	User Name	Cost Center	User ID	Item Category	Date	Item Type	Item Description	Vendor Name / Contact Information	Share Description	Share Voice	Share Messaging	Share Data	Usage Period	Allowance	Used	Billable	Cost	Order Details
+	Aug 16, 2021	enc-1479211609829366	enc-5029012205720256	enc-9729345087614266	enc-6161371025561254	0045250140:0000603900	NA	Data		gigabytes	GIGABYTE USAGE		Shared Usage	NA	NA	82000	Current	6.000(shared)	6.581	0	0.00
+	Aug 16, 2021	enc-1479211609829366	enc-5029012205720256	enc-9729345087614266	enc-6161371025561254	0045250140:0000603900	NA	Messaging		messages	PICTURE & VIDEO - RCV'D		NA	NA	NA	NA	Current	unlimited	1	0	0.00
+	Aug 16, 2021	enc-1479211609829366	enc-5029012205720256	enc-9729345087614266	enc-6161371025561254	0045250140:0000603900	NA	Messaging		messages	PICTURE & VIDEO - SENT		NA	NA	NA	NA	Current	unlimited	1	0	0.00

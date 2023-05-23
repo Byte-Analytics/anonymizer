@@ -11,7 +11,8 @@ class ConfigTester:
         return ConfigFactory.get_config(self.get_file_name())
 
     def test_load_double_header(self, fake_fs):
-        in_file = pathlib.Path(__file__).parent / 'data' / self.get_file_name()
+        input_file_path = pathlib.Path(self.get_file_name())
+        in_file = pathlib.Path(__file__).parent / 'data' / input_file_path
         encoded_file = pathlib.Path(__file__).parent / 'encoded.zip'
         out_file = pathlib.Path(__file__).parent / 'output.zip'
         config = self.get_config()
@@ -27,7 +28,7 @@ class ConfigTester:
             encode_item.process(encode_worker)
             encode_worker.save_mappings()
 
-        encoded_content = ZipPath(encoded_file, self.get_file_name()).read_bytes()
+        encoded_content = ZipPath(encoded_file, input_file_path.name).read_bytes()
         assert encoded_content != original_content
 
         with Worker(
@@ -36,9 +37,8 @@ class ConfigTester:
                 should_save_mappings=False,
         ) as decode_worker:
             decode_worker.load_mappings(encoded_file.parent / decode_worker.MAPPING_FILE_NAME)
-            decode_item = DecodeItem(path=ZipPath(encoded_file, self.get_file_name()), config=config)
+            decode_item = DecodeItem(path=ZipPath(encoded_file, input_file_path.name), config=config)
             decode_item.process(decode_worker)
 
-        encode_decode_content = ZipPath(out_file, self.get_file_name()).read_bytes()
-        assert encode_decode_content == original_content, \
-            f'{encode_decode_content=} vs {original_content=}'
+        encode_decode_content = ZipPath(out_file, input_file_path.name).read_bytes()
+        assert encode_decode_content == original_content, f'{encode_decode_content=} vs {original_content=}'
