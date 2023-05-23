@@ -38,11 +38,11 @@ clear_columns = []
 encode_columns = ['Acct Nbr', 'GST RefNbr', 'QST RefNbr']
 encoding = 'iso-8859-1'
 
-[Bell.DLT_file]
+[Bell.DTL_file]
 config_class = 'csv-config'
 dialect = 'excel'
 num_headers = 2
-file_mask = '.*_DLT'
+file_mask = '.*_DTL'
 clear_columns = []
 encode_columns = ['Acct Nbr', 'Called Nbr', 'Mobile Nbr']
 encoding = 'iso-8859-1'

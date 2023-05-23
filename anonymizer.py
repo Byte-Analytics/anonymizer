@@ -9,7 +9,6 @@ import re
 import sys
 import zipfile
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, ClassVar, Iterable, Iterator, Optional, Type, Union
 
@@ -69,20 +68,20 @@ class QueueItem(ABC):
 class EncodeItem(QueueItem, ABC):
     def process(self, worker: 'Worker'):
         # It's really important that output encoding matches the input one. Especially for CSV.
-        dest = io.TextIOWrapper(buffer=io.BytesIO(), encoding=self.config.get_encoding())
+        dest = io.TextIOWrapper(buffer=io.BytesIO(), encoding=self.config.encoding)
         self.config.map_file(self.path, worker, dest)
         dest.seek(0)
         # Encoding into bytes to ensure that proper encoding is always used.
-        buffer_data: bytes = dest.read().encode(self.config.get_encoding())
+        buffer_data: bytes = dest.read().encode(self.config.encoding)
         worker.save_output(self.output_name(), buffer_data)
 
 
 class DecodeItem(QueueItem, ABC):
     def process(self, worker: 'Worker'):
-        with self.path.open(mode='r', encoding=self.config.get_encoding()) as source:  # noqa (params are supported)
+        with self.path.open(mode='r', encoding=self.config.encoding) as source:  # noqa (params are supported)
             content = source.read()
             content = ENC_PATTERN.sub(worker.encoded_replace, content)
-        worker.save_output(self.output_name(), content.encode(self.config.get_encoding()))
+        worker.save_output(self.output_name(), content.encode(self.config.encoding))
 
 
 class Worker:
@@ -211,18 +210,13 @@ class Worker:
             self.save_mappings()
 
 
-@dataclass
 class BaseConfig:
     CONFIG_TYPE: ClassVar[str] = None
 
-    file_mask: str
-    carrier: str
-
-    def get_encoding(self) -> str:
-        # It has to be done in this silly way because it's a dataclass and not a pydantic model,
-        # so we can't have default values before non-default values, even after inheritance.
-        # The same logic sticks to NamedTuple, thus not to bloat the build, this hack is placed.
-        return getattr(self, 'encoding', 'utf-8')
+    def __init__(self, file_mask: str, carrier: str, encoding: str = 'utf-8'):
+        self.file_mask = file_mask
+        self.carrier = carrier
+        self.encoding = encoding
 
     def matches(self, filename: str) -> bool:
         return re.match(self.file_mask, filename) is not None
@@ -292,19 +286,27 @@ class ConfigFactory:
 
 
 @ConfigFactory.register
-@dataclass
 class CSVConfig(BaseConfig):
     CONFIG_TYPE = 'csv-config'
 
-    dialect: str
-    clear_columns: Iterable[str]
-    encode_columns: Iterable[str]
-    delimiter: Optional[str] = None
-    num_headers: int = 1
-    encoding: str = 'utf-8'
+    def __init__(
+        self,
+        dialect: str,
+        clear_columns: Iterable[str],
+        encode_columns: Iterable[str],
+        delimiter: Optional[str] = None,
+        num_headers: int = 1,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.dialect = dialect
+        self.clear_columns = clear_columns
+        self.encode_columns = encode_columns
+        self.delimiter = delimiter
+        self.num_headers = num_headers
 
     def map_file(self, in_file: FilePath, worker: Worker, destination: io.BufferedWriter) -> None:
-        with in_file.open(encoding=self.get_encoding()) as source:  # noqa (all FilePath types support encoding on open)
+        with in_file.open(encoding=self.encoding) as source:  # noqa (all FilePath types support encoding on open)
             reader, writer = self.csv_reader_writer(source, destination)
             stripped_fieldnames = {key.strip(): key for key in reader.fieldnames}
 
@@ -321,7 +323,9 @@ class CSVConfig(BaseConfig):
                 writer.writerow(mapped_row)
 
     def csv_reader_writer(self, source, dest):
-        config = {'dialect': self.dialect}
+        config = {
+            'dialect': self.dialect,
+        }
         if self.delimiter:
             config['delimiter'] = self.delimiter
         reader = csv.DictReader(f=source, **config)
