@@ -1,9 +1,8 @@
-import csv
 import io
 import pathlib
 from typing import Any
 
-from anonymizer import BaseConfig, CSVConfig, ConfigFactory, DecodeItem, EncodeItem, FilePath, Worker, ZipPath
+from anonymizer import BaseConfig, CSVConfig, ConfigFactory, FilePath, QueueItem, Worker, XLSXConfig, ZipPath
 
 
 class DataLoaderProtocol:
@@ -11,10 +10,11 @@ class DataLoaderProtocol:
         raise NotImplementedError
 
 
-class CsvDataLoader(DataLoaderProtocol):
+class TableDataLoader(DataLoaderProtocol):
     def load_data_for_comparison(self, in_file: FilePath, config: BaseConfig) -> list[dict]:
-        assert isinstance(config, CSVConfig)
-        with config.make_csv_reader_writer(in_file, io.StringIO()) as (reader, _writer):
+        assert isinstance(config, CSVConfig) or isinstance(config, XLSXConfig)
+        buffer = config.make_destination_buffer()
+        with config.make_csv_reader_writer(in_file, buffer) as (reader, _writer):
             out_lines = []
             for line_dict in reader:
                 out_line_dict = {
@@ -56,7 +56,7 @@ class ConfigTester(DataLoaderProtocol):
                 output_zipname=encoded_file.name,
                 should_save_mappings=True,
         ) as encode_worker:
-            encode_item = EncodeItem(path=input_file_path, config=config)
+            encode_item = QueueItem(path=input_file_path, config=config)
             encode_item.process(encode_worker)
             encode_worker.save_mappings()
 
@@ -71,7 +71,7 @@ class ConfigTester(DataLoaderProtocol):
                 should_save_mappings=False,
         ) as decode_worker:
             decode_worker.load_mappings(encoded_file.parent / decode_worker.MAPPING_FILE_NAME)
-            decode_item = DecodeItem(path=ZipPath(encoded_file, input_file_path.name), config=config)
+            decode_item = QueueItem(path=ZipPath(encoded_file, input_file_path.name), config=config)
             decode_item.process(decode_worker)
 
         encode_decode_content = self.load_data_for_comparison(ZipPath(out_file, input_file_path.name), config)

@@ -1,8 +1,8 @@
 from anonymizer import FilePath
-from tests.config_tester import ConfigTester, CsvDataLoader
+from tests.config_tester import ConfigTester, TableDataLoader
 
 
-class TestATnTRawDataOutputFile(ConfigTester, CsvDataLoader):
+class TestATnTRawDataOutputFile(ConfigTester, TableDataLoader):
     def get_file_path(self) -> FilePath:
         return self.data_directory / 'at&t/rawdataoutput_test.csv'
 

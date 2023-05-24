@@ -9,12 +9,14 @@ import random
 import re
 import sys
 import zipfile
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any, BinaryIO, Callable, ClassVar, Iterable, Iterator, NamedTuple, Optional, Type, TypeVar, Union
 
 import toml
+from openpyxl.reader.excel import load_workbook
+# Note: openpyxl was chosen as it's the pandas dependency for loading xlsx documents.
 from openpyxl.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 
@@ -23,6 +25,8 @@ from gooey import Gooey, GooeyParser
 ENCODED_DIGITS = 16
 ENC_PATTERN = re.compile(r"enc-\d{16}")  # make sure this matches ENCODED_DIGITS
 REPORT_PROGRESS = True
+
+ConfigType = TypeVar('ConfigType', bound='BaseConfig')
 
 
 def random_digits():
@@ -53,45 +57,25 @@ class ZipPath(zipfile.Path):
 FilePath = Union[Path, ZipPath]
 
 
-class QueueItem(ABC):
+class QueueItem:
     def __init__(self, path: FilePath, config: 'BaseConfig'):
         self.path: FilePath = path
         self.config = config
 
-    @abstractmethod
     def process(self, worker: 'Worker'):
-        raise NotImplementedError()
+        dest = self.config.make_destination_buffer()
+        self.config.map_file(self.path, worker, dest)
+        buffer_data = self.config.make_buffer_binary(dest)
+        worker.save_output(self.output_name(), buffer_data)
+
+        supporting_files = self.config.get_supporting_files(self.path)
+        worker.save_supporting_files(supporting_files)
 
     def output_name(self) -> str:
         return self.path.name
 
     def __str__(self) -> str:
         return f'{self.path}'
-
-
-class EncodeItem(QueueItem, ABC):
-    def process(self, worker: 'Worker'):
-        # It's really important that output encoding matches the input one. Especially for CSV.
-        dest = io.TextIOWrapper(buffer=io.BytesIO(), encoding=self.config.encoding)
-        self.config.map_file(self.path, worker, dest)
-        dest.seek(0)
-        # Encoding into bytes to ensure that proper encoding is always used.
-        buffer_data: bytes = dest.read().encode(self.config.encoding)
-        worker.save_output(self.output_name(), buffer_data)
-
-        supporting_files = self.config.get_supporting_files(self.path)
-        worker.save_supporting_files(supporting_files)
-
-
-class DecodeItem(QueueItem, ABC):
-    def process(self, worker: 'Worker'):
-        with self.path.open(mode='r', encoding=self.config.encoding) as source:  # noqa (params are supported)
-            content = source.read()
-            content = ENC_PATTERN.sub(worker.encoded_replace, content)
-        worker.save_output(self.output_name(), content.encode(self.config.encoding))
-
-        supporting_files = self.config.get_supporting_files(self.path)
-        worker.save_supporting_files(supporting_files)
 
 
 class Worker:
@@ -173,11 +157,7 @@ class Worker:
             if config is None:
                 continue
 
-            if for_encode:
-                self.queue.append(EncodeItem(file_path, config))
-            else:
-                self.queue.append(DecodeItem(file_path, config))
-
+            self.queue.append(QueueItem(file_path, config))
             self.filesizes.append(file_path.stat().st_size)
 
     def encode_value(self, value: str) -> str:
@@ -231,6 +211,7 @@ class Worker:
 
 class BaseConfig:
     CONFIG_TYPE: ClassVar[str] = None
+    BUFFER_TYPE: ClassVar[Type] = io.TextIOWrapper
 
     def __init__(self, file_mask: str, carrier: str, encoding: str = 'utf-8'):
         self.file_mask = file_mask
@@ -243,8 +224,16 @@ class BaseConfig:
     def get_supporting_files(self, in_file: FilePath) -> list[FilePath]:
         return []
 
+    def make_destination_buffer(self) -> BUFFER_TYPE:
+        return io.TextIOWrapper(buffer=io.BytesIO(), encoding=self.encoding)
+
+    def make_buffer_binary(self, destination_buffer: BUFFER_TYPE) -> bytes:
+        destination_buffer.seek(0)
+        data = destination_buffer.read()
+        return data.encode(self.encoding)
+
     @abstractmethod
-    def map_file(self, in_file: FilePath, worker: Worker, destination: io.TextIOBase) -> None:
+    def map_file(self, in_file: FilePath, worker: Worker, destination: io.IOBase) -> None:
         raise NotImplementedError
 
     @abstractmethod
@@ -259,8 +248,6 @@ class BaseConfig:
             'message': message,
         }
 
-
-ConfigType = TypeVar('ConfigType', bound=BaseConfig)
 
 class ConfigFactory:
     REGISTERED: ClassVar[dict[str, Type[BaseConfig]]] = {}
@@ -574,6 +561,7 @@ class XlsxWriter(csv.DictWriter):
 @ConfigFactory.register
 class XLSXConfig(CSVConfig):
     CONFIG_TYPE = 'xlsx-config'
+    BUFFER_TYPE = io.BytesIO
 
     def __init__(
         self,
@@ -599,12 +587,32 @@ class XLSXConfig(CSVConfig):
             **kwargs,
         )
 
+    def make_destination_buffer(self) -> BUFFER_TYPE:
+        return io.BytesIO()
+
+    def make_buffer_binary(self, destination_buffer: BUFFER_TYPE) -> bytes:
+        return destination_buffer.getvalue()
+
+    @contextlib.contextmanager
     def make_csv_reader_writer(
         self,
         in_file: FilePath,
-        destination: io.TextIOWrapper,
+        destination: io.BytesIO,
     ) -> tuple[csv.DictReader, csv.DictWriter]:
-        pass
+        # When reading an Excel file, it's better to load it all up into the memory.
+        # This way we can even load files from inside a zip archive.
+        with in_file.open(mode='rb') as f:
+            workbook_data = f.read()
+
+        workbook = load_workbook(io.BytesIO(workbook_data), read_only=True, rich_text=True)  # noqa (rich_text not in pyi)
+        worksheet = workbook.active
+
+        reader = XlsxReader(worksheet)
+        writer = XlsxWriter(worksheet, fieldnames=reader.fieldnames)
+
+        yield reader, writer
+
+        writer.save_workbook(destination)
 
 
 def add_common_arguments(parser: GooeyParser, add_mapping: bool):

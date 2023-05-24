@@ -57,6 +57,36 @@ clear_columns = ['Ref Nbr', 'Group Subscriber', 'Category', 'SubCategory']
 encode_columns = ['Acct Nbr', 'Mobile Nbr', 'Surname', 'Given Name']
 encoding = 'iso-8859-1'
 
+[Bell.CostOverview]
+config_class = 'xlsx-config'
+file_mask = '.*-Cost overview'
+clear_columns = ['Category', 'Sub-category', 'Reference #', 'PO number', 'ESN/IMEI', 'Model code', 'Model description', 'SIM number']
+encode_columns = ['Group ID', 'Group name', 'Account number', 'Account name', 'Mobile number', 'User last name', 'User first name']
+
+[Bell.EnhancedUserProfile]
+config_class = 'xlsx-config'
+file_mask = '.*-Enhanced User profile report'
+clear_columns = ['Category', 'Sub-category', 'Reference #', 'PO number', 'ESN/IMEI', 'Model code', 'Model description', 'SIM number']
+encode_columns = ['Group ID', 'Group name', 'Account number', 'Account name', 'Mobile number', 'User last name', 'User first name']
+
+[Bell.HardwareReport]
+config_class = 'xlsx-config'
+file_mask = '.*-Hardware report'
+clear_columns = ['Category', 'Sub-category', 'Reference #', 'PO number', 'ESN/IMEI', 'Model code', 'Model description', 'SIM number']
+encode_columns = ['Group ID', 'Group name', 'Account number', 'Account name', 'Mobile number', 'User last name', 'User first name']
+
+[Bell.InvoiceChargeReport]
+config_class = 'xlsx-config'
+file_mask = '.*-Invoice charge report'
+clear_columns = ['Category', 'Sub-category', 'Reference #', 'PO number', 'ESN/IMEI', 'Model code', 'Model description', 'SIM number']
+encode_columns = ['Group ID', 'Group name', 'Account number', 'Account name', 'Mobile number', 'User last name', 'User first name']
+
+[Bell.UsageOverview]
+config_class = 'xlsx-config'
+file_mask = '.*-Usage overview'
+clear_columns = ['Category', 'Sub-category', 'Reference #', 'PO number', 'ESN/IMEI', 'Model code', 'Model description', 'SIM number']
+encode_columns = ['Group ID', 'Group name', 'Account number', 'Account name', 'Mobile number', 'User last name', 'User first name']
+
 
 [ATnT]
 [ATnT.common]
