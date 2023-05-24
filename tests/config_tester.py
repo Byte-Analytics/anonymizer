@@ -62,7 +62,7 @@ class ConfigTester(DataLoaderProtocol):
 
         encoded_content = self.load_data_for_comparison(ZipPath(encoded_file, input_file_path.name), config)
         assert encoded_content != original_content
-        assert len(encoded_content) == len(original_content), f'{len(encoded_content)=} vs {len(original_content)=}'
+        assert len(encoded_content) == len(original_content), f'{encoded_content=} vs {original_content=}'
         self.assert_encoded_data(encoded_content)
 
         with Worker(

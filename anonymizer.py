@@ -76,6 +76,9 @@ class EncodeItem(QueueItem, ABC):
         buffer_data: bytes = dest.read().encode(self.config.encoding)
         worker.save_output(self.output_name(), buffer_data)
 
+        supporting_files = self.config.get_supporting_files(self.path)
+        worker.save_supporting_files(supporting_files)
+
 
 class DecodeItem(QueueItem, ABC):
     def process(self, worker: 'Worker'):
@@ -83,6 +86,9 @@ class DecodeItem(QueueItem, ABC):
             content = source.read()
             content = ENC_PATTERN.sub(worker.encoded_replace, content)
         worker.save_output(self.output_name(), content.encode(self.config.encoding))
+
+        supporting_files = self.config.get_supporting_files(self.path)
+        worker.save_supporting_files(supporting_files)
 
 
 class Worker:
@@ -115,6 +121,15 @@ class Worker:
 
     def encoded_replace(self, match: re.Match):
         return self.encoded_mappings[match.group()]
+
+    def save_supporting_files(self, in_files: list[FilePath]) -> None:
+        # TODO: optimize
+        #  This is far from being "ok". It assumes that the whole file is held in memory,
+        #  it can change the output file name etc.
+        for file_path in in_files:
+            output_name = self.unique_output_name(file_path.name)
+            with file_path.open(mode='rb') as f:
+                self.output_zipfile.writestr(output_name, f.read())
 
     def save_output(self, path: str, content: bytes) -> None:
         output_name = self.unique_output_name(path)
@@ -221,6 +236,9 @@ class BaseConfig:
 
     def matches(self, filename: str) -> bool:
         return re.match(self.file_mask, filename) is not None
+
+    def get_supporting_files(self, in_file: FilePath) -> list[FilePath]:
+        return []
 
     @abstractmethod
     def map_file(self, in_file: FilePath, worker: Worker, destination: io.TextIOBase) -> None:
@@ -378,12 +396,19 @@ class CSVConfig(BaseConfig):
             while (len(additional_headers) + 1) < self.num_headers:
                 additional_headers.append(next(reader))
 
-            writer.writeheader()
-            # Write additional header lines back to the anonymized file.
-            writer.writerows(additional_headers)
+            if self.external_header_file is None:
+                writer.writeheader()
+                # Write additional header lines back to the anonymized file.
+                writer.writerows(additional_headers)
+
             for row in reader:
                 mapped_row = self.mapper(row, worker.encode_value, stripped_fieldnames)
                 writer.writerow(mapped_row)
+
+    def get_supporting_files(self, in_file: FilePath) -> list[FilePath]:
+        if self.external_header_file is None:
+            return []
+        return [self._get_header_file_path(in_file)]
 
     def make_csv_config(self) -> dict[str, str]:
         config = {
@@ -393,12 +418,15 @@ class CSVConfig(BaseConfig):
             config['delimiter'] = self.delimiter
         return config
 
+    def _get_header_file_path(self, in_file: FilePath) -> FilePath:
+        return in_file.parent / self.external_header_file
+
     def _load_fieldnames(self, in_file: FilePath) -> Optional[list[str]]:
         if self.external_header_file is None:
             return None
 
         # It is assumed that external header will be placed relative to the original file with data.
-        header_file_path = in_file.parent / self.external_header_file
+        header_file_path = self._get_header_file_path(in_file)
 
         # Name of the handler is either carrier or specific name. We assume that in most cases
         # a single carrier will have a single format, but don't want to limit ourselves to that case.
