@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import collections
+import contextlib
 import csv
 import io
 import os.path
@@ -285,13 +286,61 @@ class ConfigFactory:
         print(f'Loaded {len(cls.LOADED)} configuration options.')
 
 
+class Condition(NamedTuple):
+    replace_where: str
+    if_column: str
+    comparison_operator: str
+    has_value: str
+
+    def does_match(self, column_value: str) -> bool:
+        operators = {
+            '==': column_value == self.has_value,
+            '!=': column_value != self.has_value,
+        }
+        try:
+            return operators[self.comparison_operator]
+        except KeyError as ex:
+            raise ValueError(
+                f'Unknown operator {self.comparison_operator}, use one of {list(operators.keys())}'
+            ) from ex
+
+
+class SingleReplacement(NamedTuple):
+    value: str
+    span_start: int
+    span_end: int
+
+    def apply(self, in_str: list[str]) -> None:
+        in_str[self.span_start: self.span_end] = list(self.value)
+
+
+class EncodeRegex(NamedTuple):
+    replace_where: str
+    expression: str
+
+    def encode(self, column_value: str, encoder: Callable[[str], str]) -> str:
+        result = re.match(self.expression, column_value)
+        if result is None or len(result.groupdict()) == 0:
+            return column_value
+
+        # We need to replace elements in this string from the back, to ensure that
+        # indices will always point to the right place in the output string.
+        replacements = []
+        for group_name, group_value in result.groupdict().items():
+            span_start, span_end = result.span(group_name)
+            replacement_value = encoder(group_value)
+            replacements.append(SingleReplacement(replacement_value, span_start, span_end))
+
+        # Replacing non-mutable string with a list of single characters that we'll work on.
+        out_value = list(column_value)
+        for replacement in sorted(replacements, key=lambda elem: elem.span_end, reverse=True):
+            replacement.apply(out_value)
+
+        return ''.join(out_value)
+
+
 @ConfigFactory.register
 class CSVConfig(BaseConfig):
-    class Condition(NamedTuple):
-        replace_where: str
-        if_column: str
-        has_value: str
-
     CONFIG_TYPE = 'csv-config'
 
     def __init__(
@@ -299,24 +348,29 @@ class CSVConfig(BaseConfig):
         clear_columns: Iterable[str],
         encode_columns: Iterable[str],
         encode_conditional: Optional[Iterable[list[str]]] = None,
+        encode_regex: Optional[Iterable[list[str]]] = None,
         dialect: str = 'excel',
         delimiter: Optional[str] = None,
         num_headers: int = 1,
         skip_initial_lines: int = 0,
+        external_header_file: Optional[str] = None,
+        external_header_format: Optional[str] = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.dialect = dialect
         self.clear_columns = clear_columns
         self.encode_columns = encode_columns
-        self.encode_conditional = [self.Condition(*entry) for entry in (encode_conditional or [])]
+        self.encode_conditional = [Condition(*entry) for entry in (encode_conditional or [])]
+        self.encode_regex = [EncodeRegex(*entry) for entry in (encode_regex or [])]
         self.delimiter = delimiter
         self.num_headers = num_headers
         self.skip_initial_lines = skip_initial_lines
+        self.external_header_file = external_header_file
+        self.external_header_format = external_header_format
 
-    def map_file(self, in_file: FilePath, worker: Worker, destination: io.BufferedWriter) -> None:
-        with in_file.open(encoding=self.encoding) as source:  # noqa (all FilePath types support encoding on open)
-            reader, writer = self.csv_reader_writer(source, destination)
+    def map_file(self, in_file: FilePath, worker: Worker, destination: io.TextIOWrapper) -> None:
+        with self.make_csv_reader_writer(in_file, destination) as (reader, writer):
             stripped_fieldnames = {key.strip(): key for key in reader.fieldnames}
 
             # In case of some operators, they can have multiple header rows at the start of the file.
@@ -331,7 +385,7 @@ class CSVConfig(BaseConfig):
                 mapped_row = self.mapper(row, worker.encode_value, stripped_fieldnames)
                 writer.writerow(mapped_row)
 
-    def csv_config(self) -> dict[str, str]:
+    def make_csv_config(self) -> dict[str, str]:
         config = {
             'dialect': self.dialect,
         }
@@ -339,17 +393,64 @@ class CSVConfig(BaseConfig):
             config['delimiter'] = self.delimiter
         return config
 
-    def csv_reader_writer(self, source, dest):
-        # TODO: consider making it a context manager.
-        # We can have a header that doesn't provide any data. It's rewritten "as is".
-        for _ in range(self.skip_initial_lines):
-            line = source.readline()
-            dest.writelines([line])
+    def _load_fieldnames(self, in_file: FilePath) -> Optional[list[str]]:
+        if self.external_header_file is None:
+            return None
 
-        config = self.csv_config()
-        reader = csv.DictReader(f=source, **config)
-        writer = csv.DictWriter(f=dest, fieldnames=reader.fieldnames, **config)
-        return reader, writer
+        # It is assumed that external header will be placed relative to the original file with data.
+        header_file_path = in_file.parent / self.external_header_file
+
+        # Name of the handler is either carrier or specific name. We assume that in most cases
+        # a single carrier will have a single format, but don't want to limit ourselves to that case.
+        handler_fun = {
+            'Rogers': self._load_rogers_fieldnames,
+        }[self.external_header_format or self.carrier]
+        return handler_fun(header_file_path)
+
+    def _load_rogers_fieldnames(self, header_file: FilePath) -> list[str]:
+        """
+        Rogers header file contains:
+        - a single line with header type name and period
+        - an empty line
+        - CSV with fields "field name", "max length", "type" in that order
+        We're interested in "field name" only.
+        """
+        field_name_tag = 'field_name'
+        out_list = []
+
+        with header_file.open(mode='r', encoding=self.encoding) as f:  # noqa (encoding is supported)
+            for _ in range(2):
+                f.readline()
+
+            reader = csv.DictReader(  # noqa (pathlib.Path / zipfile.Path open result is good enough)
+                f,
+                fieldnames=[field_name_tag, 'max length', 'type'],
+                # This is specific to the header, normal files are separated by pipes.
+                delimiter=',',
+            )
+            for line_dict in reader:
+                out_list.append(line_dict[field_name_tag])
+
+        return out_list
+
+    @contextlib.contextmanager
+    def make_csv_reader_writer(
+        self,
+        in_file: FilePath,
+        destination: io.TextIOWrapper,
+    ) -> tuple[csv.DictReader, csv.DictWriter]:
+        fieldnames = self._load_fieldnames(in_file)
+        with in_file.open(mode='r',
+                          encoding=self.encoding) as source:  # noqa (all FilePath types support encoding on open)
+            # We can have a header that doesn't provide any data. It's rewritten "as is".
+            for _ in range(self.skip_initial_lines):
+                line = source.readline()
+                destination.writelines([line])  # noqa
+
+            config = self.make_csv_config()
+            reader = csv.DictReader(f=source, fieldnames=fieldnames, **config)  # noqa
+            writer = csv.DictWriter(f=destination, fieldnames=fieldnames or reader.fieldnames, **config)
+            yield reader, writer
 
     def mapper(
         self,
@@ -359,14 +460,24 @@ class CSVConfig(BaseConfig):
     ) -> dict[str, str]:
         # It is possible that each key here requires striping.
         mapped_data = in_data.copy()
+
         for key in self.clear_columns:
             mapped_data[fieldnames_mapping[key]] = ''
+
         for key in self.encode_columns:
             mapped_data[fieldnames_mapping[key]] = encode(mapped_data.get(fieldnames_mapping[key]) or '')
+
         for condition in self.encode_conditional:
-            if mapped_data[fieldnames_mapping[condition.if_column]].strip() == condition.has_value:
+            column_value = mapped_data[fieldnames_mapping[condition.if_column]].strip()
+            if condition.does_match(column_value):
                 mapped_data[fieldnames_mapping[condition.replace_where]] = \
                     encode(mapped_data.get(fieldnames_mapping[condition.replace_where]) or '')
+
+        for encode_regex in self.encode_regex:
+            column_value = mapped_data[fieldnames_mapping[encode_regex.replace_where]].strip()
+            encoded_value = encode_regex.encode(column_value, encode)
+            mapped_data[fieldnames_mapping[encode_regex.replace_where]] = encoded_value
+
         return mapped_data
 
     def get_description(self) -> dict[str, str]:

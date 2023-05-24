@@ -14,8 +14,7 @@ class DataLoaderProtocol:
 class CsvDataLoader(DataLoaderProtocol):
     def load_data_for_comparison(self, in_file: FilePath, config: BaseConfig) -> list[dict]:
         assert isinstance(config, CSVConfig)
-        with in_file.open(mode='r', encoding=config.encoding) as f:  # noqa
-            reader, _writer = config.csv_reader_writer(f, io.StringIO())
+        with config.make_csv_reader_writer(in_file, io.StringIO()) as (reader, _writer):
             out_lines = []
             for line_dict in reader:
                 out_line_dict = {
