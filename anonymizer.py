@@ -11,9 +11,12 @@ import sys
 import zipfile
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Callable, ClassVar, Iterable, Iterator, NamedTuple, Optional, Type, Union
+from tempfile import NamedTemporaryFile
+from typing import Any, BinaryIO, Callable, ClassVar, Iterable, Iterator, NamedTuple, Optional, Type, TypeVar, Union
 
 import toml
+from openpyxl.workbook import Workbook
+from openpyxl.worksheet.worksheet import Worksheet
 
 from gooey import Gooey, GooeyParser
 
@@ -257,6 +260,8 @@ class BaseConfig:
         }
 
 
+ConfigType = TypeVar('ConfigType', bound=BaseConfig)
+
 class ConfigFactory:
     REGISTERED: ClassVar[dict[str, Type[BaseConfig]]] = {}
     LOADED: ClassVar[list[BaseConfig]] = []
@@ -264,7 +269,7 @@ class ConfigFactory:
     DEFAULT_CONFIGURATION: ClassVar[Path] = Path(__file__).parent / Path('./config.toml')
 
     @classmethod
-    def register(cls, config_class: Type[BaseConfig]) -> Type[BaseConfig]:
+    def register(cls, config_class: Type[ConfigType]) -> Type[ConfigType]:
         cls.REGISTERED[config_class.CONFIG_TYPE] = config_class
         return config_class
 
@@ -512,6 +517,94 @@ class CSVConfig(BaseConfig):
         return self.make_description(
             f'Clear columns: {self.clear_columns or "None"}\nEncode columns: {self.encode_columns or "None"}',
         )
+
+
+class XlsxReader(csv.DictReader):
+    class Reader:
+        def __init__(self, worksheet: Worksheet):
+            self.generator = worksheet.values
+            self.line_num = 0
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            self.line_num += 1
+            return next(self.generator)
+
+    def __init__(self, worksheet: Worksheet, *args, **kwargs):
+        super().__init__(f=[], *args, **kwargs)
+        self.reader = self.Reader(worksheet)
+
+
+class XlsxWriter(csv.DictWriter):
+    class Writer:
+        def __init__(self, original: Worksheet):
+            self.workbook = Workbook()
+            self.worksheet = Worksheet(self.workbook, original.title)
+            self.row_index = 1
+
+        def writerow(self, list_of_values: list[Any]) -> int:
+            # This is FAR from optimal, but it should work and was easy to write.
+            for index, value in enumerate(list_of_values, start=1):
+                cell = self.worksheet.cell(row=self.row_index, column=index)
+                cell.value = value
+
+            self.row_index += 1
+            return 0
+
+        def writerows(self, list_of_list_of_values: list[list[Any]]) -> int:
+            for list_of_values in list_of_list_of_values:
+                self.writerow(list_of_values)
+            return 0
+
+    def __init__(self, worksheet: Worksheet, *args, **kwargs):
+        super().__init__(f=io.StringIO(), *args, **kwargs)
+        self.writer = self.Writer(worksheet)
+
+    def save_workbook(self, out_stream: BinaryIO) -> None:
+        # This is the official way of making a stream out of a workbook.
+        # https://openpyxl.readthedocs.io/en/stable/tutorial.html#saving-as-a-stream
+        with NamedTemporaryFile() as temp_file:
+            self.writer.workbook.save(temp_file.name)
+            temp_file.seek(0)
+            out_stream.write(temp_file.read())
+
+
+@ConfigFactory.register
+class XLSXConfig(CSVConfig):
+    CONFIG_TYPE = 'xlsx-config'
+
+    def __init__(
+        self,
+        clear_columns: Iterable[str],
+        encode_columns: Iterable[str],
+        encode_conditional: Optional[Iterable[list[str]]] = None,
+        encode_regex: Optional[Iterable[list[str]]] = None,
+        num_headers: int = 1,
+        skip_initial_lines: int = 0,
+        **kwargs,
+    ):
+        super().__init__(
+            clear_columns=clear_columns,
+            encode_columns=encode_columns,
+            encode_conditional=encode_conditional,
+            encode_regex=encode_regex,
+            dialect='--',
+            delimiter=None,
+            num_headers=num_headers,
+            skip_initial_lines=skip_initial_lines,
+            external_header_file=None,
+            external_header_format=None,
+            **kwargs,
+        )
+
+    def make_csv_reader_writer(
+        self,
+        in_file: FilePath,
+        destination: io.TextIOWrapper,
+    ) -> tuple[csv.DictReader, csv.DictWriter]:
+        pass
 
 
 def add_common_arguments(parser: GooeyParser, add_mapping: bool):
