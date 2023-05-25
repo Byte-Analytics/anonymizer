@@ -36,6 +36,9 @@ def random_digits():
 
 
 class ZipPath(zipfile.Path):
+    class FakeStat(NamedTuple):
+        st_size: int
+
     @property
     def stem(self) -> str:
         return Path(str(self)).stem
@@ -54,6 +57,11 @@ class ZipPath(zipfile.Path):
             entry.root.filename,  # noqa (root.filename is like a private interface)
             at=entry.at,  # noqa (at is like a private interface)
         )
+
+    def stat(self):  # The result has to look like this object -> os.stat_result:
+        # Only size is filled from this class.
+        size = self.root.getinfo(self.at).file_size  # noqa (all fields are available)
+        return self.FakeStat(size)
 
 
 FilePath = Union[Path, ZipPath]
@@ -172,6 +180,7 @@ class Worker:
             self.filesizes.append(file_path.stat().st_size)
 
     def encode_value(self, value: str) -> str:
+        # When working with XLSX we can have integers in some of the fields that we want to cover.
         try:
             return self.encoded_mappings[value]
         except KeyError:
@@ -200,7 +209,7 @@ class Worker:
         # TODO: write to temp and rename?
         with open(self.output_directory / self.MAPPING_FILE_NAME, mode="w", encoding='utf-8') as f:
             writer = csv.writer(f, dialect='excel-tab')
-            writer.writerows(sorted(self.encoded_mappings.items()))
+            writer.writerows(self.encoded_mappings.items())
 
     def load_mappings(self, path):
         # No matter other encodings, mappings are always saved as `utf-8`.

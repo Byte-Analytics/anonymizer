@@ -161,6 +161,7 @@ encode_conditional = [['Called Number', 'Called Number', '!=', '*']]
 [Telus.common]
 carrier = 'Telus'
 config_class = 'raw-regex-config'
+encoding = 'iso-8859-1'
 regex_groups = [
     # Header.
     'Client No:\t"(?P<client_number>[0-9]+)"',

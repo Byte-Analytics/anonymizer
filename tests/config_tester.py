@@ -17,7 +17,8 @@ class TableDataLoader(DataLoaderProtocol):
             out_lines = []
             for line_dict in reader:
                 out_line_dict = {
-                    key: value
+                    # All types are cast on strings, to ensure that we compare them in the "visible" form.
+                    key: str(value)
                     for key, value in line_dict.items()
                     if key.strip() not in config.clear_columns
                 }
