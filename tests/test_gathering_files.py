@@ -18,7 +18,7 @@ def test_gathering_files(fake_fs) -> None:
 
         if file_path.suffix == '.zip':
             zip_path = zipfile.Path(file_path, at='')
-            all_files.extend(str(elem) for elem in zip_path.iterdir())
+            all_files.extend(str(elem) for elem in zip_path.iterdir() if 'Header' not in str(elem))
         else:
             all_files.append(str(file_path))
 

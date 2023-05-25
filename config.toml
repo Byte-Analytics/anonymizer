@@ -107,22 +107,23 @@ encode_conditional = [['Section_3', 'Section_2', '==', 'User Name']]
 carrier = 'Rogers'
 config_class = 'csv-config'
 delimiter = '|'
+encoding = 'iso-8859-1'
 
 [Rogers.Custom]
 skip_initial_lines = 2
-file_mask = '.*-Custom'
+file_mask = 'ALL_CALLS-Custom'
 clear_columns = ['Report Level']
 encode_columns = ['Billing Account', 'User Number', 'User Name']
 
 [Rogers.GPRS]
-file_mask = '.*-GPRS\.'
+file_mask = 'ALL_CALLS-GPRS\.'
 clear_columns = []
 encode_columns = ['BAN', 'Invoice No.', 'User Name', 'User Number']
 # This file will be searched in a path relative to the data that was found.
 external_header_file = 'Header-GPRS.txt'
 
 [Rogers.GPRS_RM]
-file_mask = '.*-GPRS-Rm\.'
+file_mask = 'ALL_CALLS-GPRS-Rm\.'
 # Despite nice information coming from Carrier Name, it also contains User Number.
 clear_columns = []
 encode_columns = ['BAN', 'Invoice No.', 'User Name', 'User Number']
@@ -133,7 +134,7 @@ external_header_file = 'Header-GPRS.txt'
 encode_regex = [['^.* (?P<user_number>[0-9]+)$', 'Carrier Name']]
 
 [Rogers.SMS]
-file_mask = '.*-SMS\.'
+file_mask = 'ALL_CALLS-SMS\.'
 clear_columns = ['Subscriber ID 1', 'Subscriber ID 2', 'Subscriber ID 3', 'Subscriber ID 4']
 encode_columns = ['BAN', 'Invoice No.', 'User Name', 'User Number']
 external_header_file = 'Header-SMS.txt'
@@ -141,14 +142,14 @@ external_header_file = 'Header-SMS.txt'
 encode_conditional = [['Called Number', 'Called Number', '!=', '*']]
 
 [Rogers.Voice]
-file_mask = '.*-Voice\.'
+file_mask = 'ALL_CALLS-Voice\.'
 clear_columns = ['Subscriber ID 1', 'Subscriber ID 2', 'Subscriber ID 3', 'Subscriber ID 4']
 encode_columns = ['BAN', 'Invoice No.', 'User Name', 'User Number']
 external_header_file = 'Header-Voice.txt'
 encode_conditional = [['Called Number', 'Called Number', '!=', '*']]
 
 [Rogers.Voice_RM]
-file_mask = '.*-VoiceRM\.'
+file_mask = 'ALL_CALLS-VoiceRM\.'
 clear_columns = ['Subscriber ID 1', 'Subscriber ID 2', 'Subscriber ID 3', 'Subscriber ID 4']
 encode_columns = ['BAN', 'Invoice No.', 'User Name', 'User Number']
 external_header_file = 'Header-Voice.txt'
