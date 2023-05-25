@@ -1,4 +1,3 @@
-import io
 import pathlib
 from typing import Any
 
@@ -30,7 +29,7 @@ class ConfigTester(DataLoaderProtocol):
     def get_file_path(self) -> FilePath:
         raise NotImplementedError
 
-    def assert_encoded_data(self, input_encoded_data: list[dict]) -> None:
+    def assert_encoded_data(self, input_encoded_data: list[dict], input_file_path: FilePath) -> None:
         pass
 
     @property
@@ -60,10 +59,11 @@ class ConfigTester(DataLoaderProtocol):
             encode_item.process(encode_worker)
             encode_worker.save_mappings()
 
-        encoded_content = self.load_data_for_comparison(ZipPath(encoded_file, input_file_path.name), config)
+        encoded_file_path = ZipPath(encoded_file, input_file_path.name)
+        encoded_content = self.load_data_for_comparison(encoded_file_path, config)
         assert encoded_content != original_content
         assert len(encoded_content) == len(original_content), f'{encoded_content=} vs {original_content=}'
-        self.assert_encoded_data(encoded_content)
+        self.assert_encoded_data(encoded_content, encoded_file_path)
 
         with Worker(
                 output_directory=str(out_file.parent),

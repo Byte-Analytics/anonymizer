@@ -162,8 +162,42 @@ encode_conditional = [['Called Number', 'Called Number', '!=', '*']]
 carrier = 'Telus'
 config_class = 'raw-regex-config'
 regex_groups = [
-    # Match for all phone numbers inside all the tables. Money values are always prepended with currency sign, so it's relatively safe.
-    "\t(?P<phone_number>[0-9]{10})\t",
+    # Header.
+    'Client No:\t"(?P<client_number>[0-9]+)"',
+    'Unique Invoice No:\t"(?P<invoice_number>[0-9]+)"',
+
+    # Body.
+    '^"Account Number (?P<account_number>[0-9]{8})"',
+    # Keeping the actual device information, could be useful for parsing out device types.
+    '^"Number/Device Information"\t"(?P<number>[0-9]{10})/(.*)"',
+    '^"C:"\t"(?P<phone_number>.*)"',
+    '^"Subscriber Name:"\t"(?P<subscriber_name>.*)"',
+    '^"Additional line user name:"\t"(?P<additional_user_name>.*)"',
+    '^"Sublevel:"\t"(?P<sublevel_name>.*)"',
+    '^"Reference ([0-9]+):"\t"(?P<reference_name>.*)"',
+
+    # Weird tables.
+    '^Department = (?P<department>.*)$',
+    '^Cost Center = (?P<department>.*)$',
+
+    # Tables.
+    # DEW Report starts with Name and then Unit Number.
+    '^"(?P<name>[^"]+)"\t"(?P<number>[0-9]{10})"\t',
+    # Group Summary Reports. It consists of:
+    # 2x subgroup, 2x reference, a single character for "prod type", then unit number and two user names,
+    # all separated by tab characters. From all that, only "prod type", number and first name cannot be empty.
+    '^(?P<sublevel_1>[^\t]*)\t(?P<sublevel_2>[^\t]*)\t(?P<ref_1>[^\t]*)\t(?P<ref_2>[^\t]*)\t([a-zA-Z])\t(?P<number>[0-9]{10})\t(?P<name_1>[^\t]+)\t(?P<name_2>[^\t]*)\t',
+    # Airtime details. Parameters are:
+    # "Call" / "Date" / "Time" / "Call Period" / "From" / "Call Type" / "Number Called"
+    # Where
+    # - call is just an index
+    # - date is in format "DD-MMM"
+    # - time is in 24h clock HH:MM
+    # - call period is a single character (W-eekend, D-aytime, E-vening)
+    # - from is a string
+    # - call type is either OG (out-going) or IN (incoming)
+    # - number called is 10 digits number
+    '^([0-9]+)\t([0-9]{2})-([a-zA-Z]{3})\t([0-9]{2}):([0-9]{2})\t([WDE])\t([^\t]+)\t([A-Z]{2})\t(?P<phone_number>[0-9]{10})\t',
 ]
 
 [Telus.AccountDetail]
