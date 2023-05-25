@@ -2,7 +2,7 @@ import io
 import pathlib
 from typing import Any
 
-from anonymizer import BaseConfig, CSVConfig, ConfigFactory, FilePath, QueueItem, Worker, XLSXConfig, ZipPath
+from anonymizer import BaseConfig, CSVConfig, ConfigFactory, FilePath, Operation, QueueItem, Worker, XLSXConfig, ZipPath
 
 
 class DataLoaderProtocol:
@@ -56,7 +56,7 @@ class ConfigTester(DataLoaderProtocol):
                 output_zipname=encoded_file.name,
                 should_save_mappings=True,
         ) as encode_worker:
-            encode_item = QueueItem(path=input_file_path, config=config)
+            encode_item = QueueItem(path=input_file_path, config=config, operation=Operation.ENCODE)
             encode_item.process(encode_worker)
             encode_worker.save_mappings()
 
@@ -71,7 +71,11 @@ class ConfigTester(DataLoaderProtocol):
                 should_save_mappings=False,
         ) as decode_worker:
             decode_worker.load_mappings(encoded_file.parent / decode_worker.MAPPING_FILE_NAME)
-            decode_item = QueueItem(path=ZipPath(encoded_file, input_file_path.name), config=config)
+            decode_item = QueueItem(
+                path=ZipPath(encoded_file, input_file_path.name),
+                config=config,
+                operation=Operation.DECODE,
+            )
             decode_item.process(decode_worker)
 
         encode_decode_content = self.load_data_for_comparison(ZipPath(out_file, input_file_path.name), config)

@@ -10,6 +10,7 @@ import re
 import sys
 import zipfile
 from abc import abstractmethod
+from enum import Enum, auto
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any, BinaryIO, Callable, ClassVar, Iterable, Iterator, NamedTuple, Optional, Type, TypeVar, Union
@@ -57,14 +58,23 @@ class ZipPath(zipfile.Path):
 FilePath = Union[Path, ZipPath]
 
 
+class Operation(Enum):
+    ENCODE = auto()
+    DECODE = auto()
+
+
 class QueueItem:
-    def __init__(self, path: FilePath, config: 'BaseConfig'):
+    def __init__(self, path: FilePath, config: 'BaseConfig', operation: Operation):
         self.path: FilePath = path
         self.config = config
+        self.operation = operation
 
     def process(self, worker: 'Worker'):
         dest = self.config.make_destination_buffer()
-        self.config.map_file(self.path, worker, dest)
+        if self.operation == Operation.ENCODE:
+            self.config.encode_file(self.path, worker, dest)
+        else:
+            self.config.decode_file(self.path, worker, dest)
         buffer_data = self.config.make_buffer_binary(dest)
         worker.save_output(self.output_name(), buffer_data)
 
@@ -115,7 +125,7 @@ class Worker:
         #  it can change the output file name etc.
         for file_path in in_files:
             output_name = self.unique_output_name(file_path.name)
-            with file_path.open(mode='rb') as f:
+            with file_path.open(mode='rb') as f:  # noqa (mode is supported)
                 self.output_zipfile.writestr(output_name, f.read())
 
     def save_output(self, path: str, content: bytes) -> None:
@@ -157,7 +167,7 @@ class Worker:
             if config is None:
                 continue
 
-            self.queue.append(QueueItem(file_path, config))
+            self.queue.append(QueueItem(file_path, config, Operation.ENCODE if for_encode else Operation.DECODE))
             self.filesizes.append(file_path.stat().st_size)
 
     def encode_value(self, value: str) -> str:
@@ -233,7 +243,11 @@ class BaseConfig:
         return data.encode(self.encoding)
 
     @abstractmethod
-    def map_file(self, in_file: FilePath, worker: Worker, destination: io.IOBase) -> None:
+    def encode_file(self, in_file: FilePath, worker: Worker, destination: BUFFER_TYPE) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def decode_file(self, in_file: FilePath, worker: Worker, destination: BUFFER_TYPE) -> None:
         raise NotImplementedError
 
     @abstractmethod
@@ -379,7 +393,13 @@ class CSVConfig(BaseConfig):
         self.external_header_file = external_header_file
         self.external_header_format = external_header_format
 
-    def map_file(self, in_file: FilePath, worker: Worker, destination: io.TextIOWrapper) -> None:
+    def _process(
+        self,
+        in_file: FilePath,
+        worker: Worker,
+        destination: io.TextIOWrapper,
+        mapper: Callable[[dict[str, str], Worker, dict[str, str]], dict[str, str]],
+    ) -> None:
         with self.make_csv_reader_writer(in_file, destination) as (reader, writer):
             stripped_fieldnames = {key.strip(): key for key in reader.fieldnames}
 
@@ -394,8 +414,14 @@ class CSVConfig(BaseConfig):
                 writer.writerows(additional_headers)
 
             for row in reader:
-                mapped_row = self.mapper(row, worker.encode_value, stripped_fieldnames)
+                mapped_row = mapper(row, worker, stripped_fieldnames)
                 writer.writerow(mapped_row)
+
+    def encode_file(self, in_file: FilePath, worker: Worker, destination: io.TextIOWrapper) -> None:
+        self._process(in_file, worker, destination, self.mapper)
+
+    def decode_file(self, in_file: FilePath, worker: Worker, destination: io.TextIOWrapper) -> None:
+        self._process(in_file, worker, destination, self.de_mapper)
 
     def get_supporting_files(self, in_file: FilePath) -> list[FilePath]:
         if self.external_header_file is None:
@@ -475,11 +501,12 @@ class CSVConfig(BaseConfig):
     def mapper(
         self,
         in_data: dict[str, str],
-        encode: Callable[[str], str],
+        worker: Worker,
         fieldnames_mapping: dict[str, str],
     ) -> dict[str, str]:
         # It is possible that each key here requires striping.
         mapped_data = in_data.copy()
+        encode = worker.encode_value
 
         for key in self.clear_columns:
             mapped_data[fieldnames_mapping[key]] = ''
@@ -499,6 +526,18 @@ class CSVConfig(BaseConfig):
             mapped_data[fieldnames_mapping[encode_regex.replace_where]] = encoded_value
 
         return mapped_data
+
+    def de_mapper(
+        self,
+        in_data: dict[str, str],
+        worker: Worker,
+        _fieldnames_mapping: dict[str, str],
+    ) -> dict[str, str]:
+        de_encode = worker.encoded_replace
+        return {
+            key: ENC_PATTERN.sub(de_encode, value)
+            for key, value in in_data.items()
+        }
 
     def get_description(self) -> dict[str, str]:
         return self.make_description(
@@ -601,7 +640,7 @@ class XLSXConfig(CSVConfig):
     ) -> tuple[csv.DictReader, csv.DictWriter]:
         # When reading an Excel file, it's better to load it all up into the memory.
         # This way we can even load files from inside a zip archive.
-        with in_file.open(mode='rb') as f:
+        with in_file.open(mode='rb') as f:  # noqa (mode is supported)
             workbook_data = f.read()
 
         workbook = load_workbook(io.BytesIO(workbook_data), read_only=True, rich_text=True)  # noqa (rich_text not in pyi)
