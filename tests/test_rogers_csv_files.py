@@ -1,4 +1,4 @@
-from anonymizer import FilePath, ZipPath
+from anonymizer import ENC_PATTERN, FilePath, ZipPath
 from tests.config_tester import ConfigTester, TableDataLoader
 
 
@@ -18,8 +18,10 @@ class TestRogersGPRSRMFile(ConfigTester, TableDataLoader):
 
 
 class CalledNumberEncoderValidator:
-    def assert_encoded_data(self, input_encoded_data: list[dict]) -> None:
-        assert True
+    def assert_encoded_data(self, input_encoded_data: list[dict], _encoded_file: FilePath) -> None:
+        for line_dict in input_encoded_data:
+            called_number = line_dict['Called Number']
+            assert called_number == '*' or ENC_PATTERN.match(called_number), f'{called_number}'
 
 
 class TestRogersSMSFile(ConfigTester, TableDataLoader, CalledNumberEncoderValidator):

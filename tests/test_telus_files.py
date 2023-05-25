@@ -59,32 +59,31 @@ class TelusRegexTester:
             assert special_key not in file_data, f'Found {special_key} in {file_path} –\n{file_data}'
 
 
-# TelusRegexTester is provided first to ensure it is run.
-class TestTelusAccountDetailFile(TelusRegexTester, ConfigTester, RegexDataLoader):
+class TestTelusAccountDetailFile(ConfigTester, RegexDataLoader, TelusRegexTester):
     def get_file_path(self) -> FilePath:
         return self.data_directory / 'telus/Account_Detail_test.txt'
 
 
-class TestTelusAirtimeDetailFile(TelusRegexTester, ConfigTester, RegexDataLoader):
+class TestTelusAirtimeDetailFile(ConfigTester, RegexDataLoader, TelusRegexTester):
     def get_file_path(self) -> FilePath:
         return self.data_directory / 'telus/Airtime_Detail_test.txt'
 
 
-class TestTelusDEWReportFile(TelusRegexTester, ConfigTester, RegexDataLoader):
+class TestTelusDEWReportFile(ConfigTester, RegexDataLoader, TelusRegexTester):
     def get_file_path(self) -> FilePath:
         return self.data_directory / 'telus/DEW_Report_test.txt'
 
 
-class TestTelusGroupSummaryFile(TelusRegexTester, ConfigTester, RegexDataLoader):
+class TestTelusGroupSummaryFile(ConfigTester, RegexDataLoader, TelusRegexTester):
     def get_file_path(self) -> FilePath:
         return self.data_directory / 'telus/Group_Summary_Report_test.txt'
 
 
-class TestTelusIndividualDetailFile(TelusRegexTester, ConfigTester, RegexDataLoader):
+class TestTelusIndividualDetailFile(ConfigTester, RegexDataLoader, TelusRegexTester):
     def get_file_path(self) -> FilePath:
         return self.data_directory / 'telus/Individual_Detail_test.txt'
 
 
-class TestTelusInvoiceSummaryFile(TelusRegexTester, ConfigTester, RegexDataLoader):
+class TestTelusInvoiceSummaryFile(ConfigTester, RegexDataLoader, TelusRegexTester):
     def get_file_path(self) -> FilePath:
         return self.data_directory / 'telus/Invoice_Summary_test.txt'

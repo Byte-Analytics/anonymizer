@@ -29,9 +29,6 @@ class ConfigTester(DataLoaderProtocol):
     def get_file_path(self) -> FilePath:
         raise NotImplementedError
 
-    def assert_encoded_data(self, input_encoded_data: list[dict], input_file_path: FilePath) -> None:
-        pass
-
     @property
     def data_directory(self) -> pathlib.Path:
         return self.base_directory / 'data'
@@ -63,7 +60,8 @@ class ConfigTester(DataLoaderProtocol):
         encoded_content = self.load_data_for_comparison(encoded_file_path, config)
         assert encoded_content != original_content
         assert len(encoded_content) == len(original_content), f'{encoded_content=} vs {original_content=}'
-        self.assert_encoded_data(encoded_content, encoded_file_path)
+        if hasattr(self, 'assert_encoded_data'):
+            getattr(self, 'assert_encoded_data')(encoded_content, encoded_file_path)
 
         with Worker(
                 output_directory=str(out_file.parent),
