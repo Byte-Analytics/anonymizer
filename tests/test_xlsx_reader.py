@@ -1,13 +1,19 @@
+import io
 import pathlib
 
+import pytest
 from openpyxl.reader.excel import load_workbook
+from openpyxl.workbook import Workbook
 
 from anonymizer import XlsxReader
 
 
-def test_read_xlsx_file() -> None:
-    in_file = pathlib.Path(__file__).parent / 'data/bell/test-Hardware report.xlsx'
-    workbook = load_workbook(in_file, read_only=True, rich_text=True)  # noqa: rich_text missing from pyi
+@pytest.fixture
+def xlsx_file() -> pathlib.Path:
+    return pathlib.Path(__file__).parent / 'data/bell/test-Hardware report.xlsx'
+
+
+def assert_valid_workbook(workbook: Workbook) -> None:
     worksheet = workbook.active
 
     reader = XlsxReader(worksheet)
@@ -28,3 +34,15 @@ def test_read_xlsx_file() -> None:
     for idx, line_dict in enumerate(lines, start=1):
         for dict_key, format_tag in field_tag_mapping:
             assert line_dict.get(dict_key) == format_tag.format(idx)
+
+
+def test_read_xlsx_file(xlsx_file) -> None:
+    workbook = load_workbook(xlsx_file, read_only=True, rich_text=True)  # noqa: rich_text missing from pyi
+    assert_valid_workbook(workbook)
+
+
+def test_read_xlsx_from_bytes(xlsx_file) -> None:
+    file_data = xlsx_file.read_bytes()
+    buffer = io.BytesIO(file_data)
+    workbook = load_workbook(buffer, read_only=True, rich_text=True)  # noqa: rich_text missing from pyi
+    assert_valid_workbook(workbook)

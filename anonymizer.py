@@ -3,6 +3,7 @@
 import collections
 import contextlib
 import csv
+import datetime
 import io
 import os.path
 import random
@@ -70,12 +71,12 @@ class QueueItem:
         self.operation = operation
 
     def process(self, worker: 'Worker'):
-        dest = self.config.make_destination_buffer()
+        destination_buffer = self.config.make_destination_buffer()
         if self.operation == Operation.ENCODE:
-            self.config.encode_file(self.path, worker, dest)
+            self.config.encode_file(self.path, worker, destination_buffer)
         else:
-            self.config.decode_file(self.path, worker, dest)
-        buffer_data = self.config.make_buffer_binary(dest)
+            self.config.decode_file(self.path, worker, destination_buffer)
+        buffer_data = self.config.make_buffer_binary(destination_buffer)
         worker.save_output(self.output_name(), buffer_data)
 
         supporting_files = self.config.get_supporting_files(self.path)
@@ -534,8 +535,15 @@ class CSVConfig(BaseConfig):
         _fieldnames_mapping: dict[str, str],
     ) -> dict[str, str]:
         de_encode = worker.encoded_replace
+
+        # Other data types should not be handled, only strings make sense.
+        def handler(data: Any) -> Any:
+            if isinstance(data, str) or isinstance(data, bytes):
+                return ENC_PATTERN.sub(de_encode, data)
+            return data
+
         return {
-            key: ENC_PATTERN.sub(de_encode, value)
+            key: handler(value)
             for key, value in in_data.items()
         }
 
@@ -567,7 +575,9 @@ class XlsxWriter(csv.DictWriter):
     class Writer:
         def __init__(self, original: Worksheet):
             self.workbook = Workbook()
-            self.worksheet = Worksheet(self.workbook, original.title)
+            # Workbook is automatically created with a sheet.
+            self.worksheet = self.workbook.active
+            self.worksheet.title = original.title
             self.row_index = 1
 
         def writerow(self, list_of_values: list[Any]) -> int:
