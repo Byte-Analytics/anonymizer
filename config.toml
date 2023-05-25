@@ -130,7 +130,7 @@ external_header_file = 'Header-GPRS.txt'
 # Encode each named group in given column according to the regular expression (in Python `re` format).
 # In current form it doesn't work with anything that's escaped, so no `\w` etc.
 # In this case, "Carrier Name" contains the "User Number" at the very end. The same issue is not present in Voice_RM.
-encode_regex = [['Carrier Name', '^.* (?P<user_number>[0-9]+)$']]
+encode_regex = [['^.* (?P<user_number>[0-9]+)$', 'Carrier Name']]
 
 [Rogers.SMS]
 file_mask = '.*-SMS\.'
@@ -155,3 +155,31 @@ external_header_file = 'Header-Voice.txt'
 encode_conditional = [['Called Number', 'Called Number', '!=', '*']]
 # Note that GPRS_RM file has this issue where "User Number" is placed in "Carrier Name" field. This issue
 # is not present in the Voice_RM file, in which only the country and the carrier are listed.
+
+
+[Telus]
+[Telus.common]
+carrier = 'Telus'
+config_class = 'raw-regex-config'
+regex_groups = [
+    # Match for all phone numbers inside all the tables. Money values are always prepended with currency sign, so it's relatively safe.
+    "\t(?P<phone_number>[0-9]{10})\t",
+]
+
+[Telus.AccountDetail]
+file_mask = 'Account_Detail_'
+
+[Telus.AirtimeDetail]
+file_mask = 'Airtime_Detail_'
+
+[Telus.DEWReport]
+file_mask = 'DEW_Report_'
+
+[Telus.GroupSummaryReport]
+file_mask = 'Group_Summary_Report_'
+
+[Telus.IndividualDetails]
+file_mask = 'Individual_Detail_'
+
+[Telus.InvoiceSummary]
+file_mask = 'Invoice_Summary_'

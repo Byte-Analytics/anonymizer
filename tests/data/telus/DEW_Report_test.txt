@@ -1,0 +1,16 @@
+"test-corp-name-1"
+"test-corp-name-2"
+"test-corp-addr-1"
+"test-corp-addr-2"
+"test-corp-addr-3"
+"test-corp-addr-4"
+
+"Account Number 11223344"
+"-------------------------------------------------------------------------------"
+"REPORT - DAYTIME, EVENING AND WEEKEND CHARGES"
+
+"Name"	"Unit Number"	"Service Plan Name"	"Service Plan Price"	"Phone Daytime Usage"	"Phone Daytime Charges"	"Phone Evening Usage"	"Phone Evening Charges"	"Phone Weekend Usage"	"Phone Weekend Charges"	"Online Daytime Usage"	"Online Daytime Charges"	"Online Evening Usage"	"Online Evening Charges"	"Online Weekend Usage"	"Online Weekend Charges"
+"test device 1"	"1122334455"	"Corp Adv MHS w/US $5 0MB"	$5.00	"0:00"	$0.00	"0:00"	$0.00	"0:00"	$0.00	"0:00"	$0.00	"0:00"	$0.00	"0:00"	$0.00
+"test device 2"	"2233445566"	"Corp Adv MHS w/US $5 0MB"	$5.00	"0:00"	$0.00	"0:00"	$0.00	"0:00"	$0.00	"0:00"	$0.00	"0:00"	$0.00	"0:00"	$0.00
+"test device 3"	"3344556677"	"Corp Adv MHS w/US $5 0MB"	$5.00	"0:00"	$0.00	"0:00"	$0.00	"0:00"	$0.00	"0:00"	$0.00	"0:00"	$0.00	"0:00"	$0.00
+"Total"	""	""	""	"637432:00"	$0.00	"30834:00"	$0.00	"140317:00"	$0.00	"0:00"	$0.00	"0:00"	$0.00	"0:00"	$0.00

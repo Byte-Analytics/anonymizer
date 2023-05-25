@@ -1,6 +1,6 @@
 import pytest
 
-from anonymizer import EncodeRegex
+from anonymizer import EncodeRegex, TableEncodeRegex
 
 
 @pytest.mark.parametrize(
@@ -15,7 +15,7 @@ def test_encode_regex_reverse(expression: str, input_str: str, expected: str) ->
     def encoder(in_str: str) -> str:
         return in_str[::-1]
 
-    output = EncodeRegex('--', expression).encode(input_str, encoder)
+    output = EncodeRegex(expression).encode(input_str, encoder)
     assert output == expected
 
 
@@ -31,5 +31,5 @@ def test_encode_regex_reverse(expression: str, input_str: str, expected: str) ->
     ]
 )
 def test_encode_regex_replacement(expression: str, replacement: dict[str, str], input_str: str, expected: str) -> None:
-    output = EncodeRegex('--', expression).encode(input_str, replacement.get)
+    output = TableEncodeRegex(expression, 'dummy-column').encode(input_str, replacement.get)
     assert output == expected

@@ -229,6 +229,9 @@ class BaseConfig:
         self.carrier = carrier
         self.encoding = encoding
 
+    def __str__(self) -> str:
+        return f'{self.carrier} with mask {self.file_mask}'
+
     def matches(self, filename: str) -> bool:
         return re.match(self.file_mask, filename) is not None
 
@@ -339,14 +342,14 @@ class SingleReplacement(NamedTuple):
         in_str[self.span_start: self.span_end] = list(self.value)
 
 
-class EncodeRegex(NamedTuple):
-    replace_where: str
-    expression: str
+class EncodeRegex:
+    def __init__(self, expression: str):
+        self.expression = expression
 
-    def encode(self, column_value: str, encoder: Callable[[str], str]) -> str:
-        result = re.match(self.expression, column_value)
+    def encode(self, value: str, encoder: Callable[[str], str]) -> str:
+        result = re.search(self.expression, value)
         if result is None or len(result.groupdict()) == 0:
-            return column_value
+            return value
 
         # We need to replace elements in this string from the back, to ensure that
         # indices will always point to the right place in the output string.
@@ -357,11 +360,19 @@ class EncodeRegex(NamedTuple):
             replacements.append(SingleReplacement(replacement_value, span_start, span_end))
 
         # Replacing non-mutable string with a list of single characters that we'll work on.
-        out_value = list(column_value)
+        out_value = list(value)
         for replacement in sorted(replacements, key=lambda elem: elem.span_end, reverse=True):
             replacement.apply(out_value)
 
         return ''.join(out_value)
+
+
+# Simplification for working with tables.
+# Note: inheriting a NamedTuple is a pain.
+class TableEncodeRegex(EncodeRegex):
+    def __init__(self, expression: str, replace_where: str):
+        super().__init__(expression)
+        self.replace_where = replace_where
 
 
 @ConfigFactory.register
@@ -387,7 +398,7 @@ class CSVConfig(BaseConfig):
         self.clear_columns = clear_columns
         self.encode_columns = encode_columns
         self.encode_conditional = [Condition(*entry) for entry in (encode_conditional or [])]
-        self.encode_regex = [EncodeRegex(*entry) for entry in (encode_regex or [])]
+        self.encode_regex = [TableEncodeRegex(*entry) for entry in (encode_regex or [])]
         self.delimiter = delimiter
         self.num_headers = num_headers
         self.skip_initial_lines = skip_initial_lines
@@ -653,7 +664,8 @@ class XLSXConfig(CSVConfig):
         with in_file.open(mode='rb') as f:  # noqa (mode is supported)
             workbook_data = f.read()
 
-        workbook = load_workbook(io.BytesIO(workbook_data), read_only=True, rich_text=True)  # noqa (rich_text not in pyi)
+        workbook = load_workbook(io.BytesIO(workbook_data), read_only=True,
+                                 rich_text=True)  # noqa (rich_text not in pyi)
         worksheet = workbook.active
 
         reader = XlsxReader(worksheet)
@@ -662,6 +674,36 @@ class XLSXConfig(CSVConfig):
         yield reader, writer
 
         writer.save_workbook(destination)
+
+
+@ConfigFactory.register
+class RawRegexConfig(BaseConfig):
+    CONFIG_TYPE = 'raw-regex-config'
+    BUFFER_TYPE = io.TextIOWrapper
+
+    def __init__(self, regex_groups: list[str], **kwargs):
+        super().__init__(**kwargs)
+        self.regex_groups = [EncodeRegex(expression) for expression in regex_groups]
+
+    def encode_file(self, in_file: FilePath, worker: Worker, destination: BUFFER_TYPE) -> None:
+        with in_file.open(mode='r', encoding=self.encoding) as source:  # noqa (encoding is supported)
+            for line in source:
+                out_line = line
+                for regex in self.regex_groups:
+                    out_line = regex.encode(out_line, worker.encode_value)
+                destination.writelines([out_line])
+
+    def decode_file(self, in_file: FilePath, worker: Worker, destination: BUFFER_TYPE) -> None:
+        with in_file.open(mode='r', encoding=self.encoding) as source:  # noqa (encoding is supported)
+            content = source.read()
+            content = ENC_PATTERN.sub(worker.encoded_replace, content)
+            destination.write(content)
+
+    def get_description(self) -> dict[str, str]:
+        return self.make_description(
+            'Replace each named group in the following expressions:\n\n'
+            + '\n'.join([entry.expression for entry in self.regex_groups]),
+        )
 
 
 def add_common_arguments(parser: GooeyParser, add_mapping: bool):

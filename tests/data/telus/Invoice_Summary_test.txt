@@ -1,0 +1,39 @@
+"test-corp-name-1"	Client No:	"11223344"
+"test-corp-name-2"	Purchase Order No:
+Invoice Date:	06-Feb-23	Unique Invoice No:	"112233445566"
+"test-corp-name-2"
+"test-corp-addr-1"
+"test-corp-addr-2"
+"test-corp-addr-3"
+"test-corp-addr-4"
+"Account Number 11223344"
+"-------------------------------------------------------------------------------"
+"REPORT - MOBILITY INVOICE SUMMARY"
+
+
+"CURRENT CHARGES"
+"Monthly Service Plan"	$84240.62
+"Additional Local Airtime"	$0.00
+"Long Distance Charges"	$509.20
+"Roaming Charges"	$1302.00
+"Do More Data Services"	$11615.50
+"Do More Voice Services"	$1885.00
+"Value-Added Services"	$2403.16
+"Other Charges and Credits"	$5178.49
+"Other Fees"	$1328.11
+"GST/HST"	$4861.16
+"Provincial Tax"	$529.08
+"Total Taxes:"	$5390.24
+"Total Current Charges:"	$113852.32
+
+"YOUR LAST BILL"
+"Amount of Last Bill 06-Jan-23"	$119567.15
+"Payment 25-Jan-23"	$-119567.15
+"Adjusted Taxes"	$0.00
+"Total Previous Charges Brought Forward"	$0.00
+"You Owe:"	$113852.32
+""
+
+"Full Payment Due If Paid On Or Before 01-Mar-23 :"	$113852.32
+"Full Payment Due If Paid After 01-Mar-23 :"	$116129.37
+

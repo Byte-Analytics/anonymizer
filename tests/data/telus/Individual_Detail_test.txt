@@ -1,0 +1,167 @@
+"test-corp-name-1"	Client No:	"11223344"
+"test-corp-name-2"	Purchase Order No:
+Invoice Date:	06-Feb-23	Unique Invoice No:	"112233445566"
+"test-corp-name-2"
+"test-corp-addr-1"
+"test-corp-addr-2"
+"test-corp-addr-3"
+"test-corp-addr-4"
+
+"Account Number 11223344"
+"-------------------------------------------------------------------------------"
+"REPORT - INDIVIDUAL DETAILS"
+
+--------------
+"C:"	"1122334455"
+"Subscriber Name:"	"test-device-1"
+"Additional line user name:"	""
+"Sublevel:"	" "
+"Sublevel:"	""
+"Reference 1:"	""
+"Reference 2:"	""
+
+"Handset Transperency"
+"Number/Device Information"	""
+"Starting Balance"	$0.00
+"Last Month's Balance"	$0.00
+"Current Balance"	$0.00
+"Monthly Credit"	$0.00
+"Monthly Balance Adjust"	$0.00
+
+
+"CURRENT CHARGES"
+"Monthly Service Plan"	$5.00
+"Additional Local Airtime"	$0.00
+"Long Distance Charges"	$0.00
+"Roaming Charges"	$0.00
+"Total Taxes:"	$0.25
+"Total Current Charges:"	$5.25
+
+"MONTHLY SERVICE PLAN"	07-Feb-23 to 06-Mar-23
+"Service Plan Name"	"Total"
+"Corp Adv MHS w/US $5 0MB (07-Feb-23 to 06-Mar-23)"	$5.00
+"Total Monthly Service Plan Charges"	$5.00
+
+"ADDITIONAL LOCAL AIRTIME"
+"Service"	"Total Airtime"	"Free Airtime"	"Included Airtime"	"Chargeable Airtime"	"Total"
+"Total Additional Local Airtime Charges"	$0.00
+
+"LONG DISTANCE CHARGES"
+"Service"	"Total LD Minutes"	"Free LD Minutes"	"Included LD Minutes"	"Chargeable LD Minutes"	"Total"
+"Total Long Distance Charges"	$0.00
+
+"ROAMING"
+"Service"	"Roaming Minutes"	"Roaming Charges"	"Roaming LD Minutes"	"Roaming LD Charges"	"Roaming Surcharge"	"Total"
+"Total Roaming Charges"	$0.00
+
+"DO MORE DATA SERVICES"
+"Service"	"Total Events"	"Event Type"	"Total"
+"Total Do More Data Services Charges"	$0.00
+
+"DO MORE VOICE SERVICES"
+"Service"	"Total Events"	"Event Type"	"Total"
+"Total Do More Voice Services Charges"	$0.00
+
+"PAGER SERVICES"
+"Service"	"Total Messages"	"Included Messages"	"Chargeable Messages"	"Total"
+"Total Pager Charges"	$0.00
+
+"VALUE-ADDED SERVICES"	07-Feb-23 to 06-Mar-23
+"Service"	"Total"
+"Corporate Roam Ready US v3 (07-Feb-23 to 06-Mar-23)"	$0.00
+"TELUS Managed IQ $0 (07-Feb-23 to 06-Mar-23)"	$0.00
+"Total Value Added Service Charges"	$0.00
+
+"OTHER CHARGES AND CREDIT"
+"Charge or Credit"	"Total"
+"Total Other Charges and Credits"	$0.00
+
+"OTHER FEES"
+"Service"	"Total"
+"Other Fees"	$0.00
+
+"TAXES"
+""	"Total"
+"GST"	$0.25
+"Total Taxes"	$0.25
+
+--------------
+"C:"	"2233445566"
+"Subscriber Name:"	"test-device-2"
+"Additional line user name:"	""
+"Sublevel:"	" "
+"Sublevel:"	""
+"Reference 1:"	""
+"Reference 2:"	""
+
+"Handset Transperency"
+"Number/Device Information"	""
+"Starting Balance"	$0.00
+"Last Month's Balance"	$0.00
+"Current Balance"	$0.00
+"Monthly Credit"	$0.00
+"Monthly Balance Adjust"	$0.00
+
+
+"CURRENT CHARGES"
+"Monthly Service Plan"	$5.00
+"Additional Local Airtime"	$0.00
+"Long Distance Charges"	$0.00
+"Roaming Charges"	$0.00
+"Total Taxes:"	$0.25
+"Total Current Charges:"	$5.25
+
+"MONTHLY SERVICE PLAN"	07-Feb-23 to 06-Mar-23
+"Service Plan Name"	"Total"
+"Corp Adv MHS w/US $5 0MB (07-Feb-23 to 06-Mar-23)"	$5.00
+"Total Monthly Service Plan Charges"	$5.00
+
+"ADDITIONAL LOCAL AIRTIME"
+"Service"	"Total Airtime"	"Free Airtime"	"Included Airtime"	"Chargeable Airtime"	"Total"
+"Total Additional Local Airtime Charges"	$0.00
+
+"LONG DISTANCE CHARGES"
+"Service"	"Total LD Minutes"	"Free LD Minutes"	"Included LD Minutes"	"Chargeable LD Minutes"	"Total"
+"Total Long Distance Charges"	$0.00
+
+"ROAMING"
+"Service"	"Roaming Minutes"	"Roaming Charges"	"Roaming LD Minutes"	"Roaming LD Charges"	"Roaming Surcharge"	"Total"
+"Total Roaming Charges"	$0.00
+
+"DO MORE DATA SERVICES"
+"Service"	"Total Events"	"Event Type"	"Total"
+"Total Do More Data Services Charges"	$0.00
+
+"DO MORE VOICE SERVICES"
+"Service"	"Total Events"	"Event Type"	"Total"
+"Total Do More Voice Services Charges"	$0.00
+
+"PAGER SERVICES"
+"Service"	"Total Messages"	"Included Messages"	"Chargeable Messages"	"Total"
+"Total Pager Charges"	$0.00
+
+"VALUE-ADDED SERVICES"	07-Feb-23 to 06-Mar-23
+"Service"	"Total"
+"Corporate Roam Ready US v3 (07-Feb-23 to 06-Mar-23)"	$0.00
+"TELUS Managed IQ $0 (07-Feb-23 to 06-Mar-23)"	$0.00
+"Total Value Added Service Charges"	$0.00
+
+"OTHER CHARGES AND CREDIT"
+"Charge or Credit"	"Total"
+"Total Other Charges and Credits"	$0.00
+
+"OTHER FEES"
+"Service"	"Total"
+"Other Fees"	$0.00
+
+"TAXES"
+""	"Total"
+"GST"	$0.25
+"Total Taxes"	$0.25
+
+"Adjustments"
+"Account Level Adjustments"	"Date"	"Total Adjustment"
+"Adjusted taxes - HST"	""	$0.00
+"Adjusted taxes - PST/QST"	""	$0.00
+"Adjusted taxes - GST"	""	$0.00
+"Account Level Totals"	$0.00
