@@ -35,3 +35,10 @@ To run from source (CLI):
 To run from source (GUI):
 -------------------------
 `python anonymizer.py`
+
+Signing with a token
+====================
+
+https://www.files.certum.eu/documents/manual_en/Code-Signing-signing-the-code-using-tools-like-Singtool-and-Jarsigner_v2.3.pdf
+
+or use `codesign/sign_windows_with_token.bat`.
