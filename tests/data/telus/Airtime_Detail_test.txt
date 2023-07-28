@@ -1,0 +1,75 @@
+"test-corp-name-1"	Client No:	"11223344"
+"test-corp-name-2"	Purchase Order No:
+Invoice Date:	06-Feb-23	Unique Invoice No:	"112233445566"
+"test-corp-name-2"
+"test-corp-addr-1"
+"test-corp-addr-2"
+"test-corp-addr-3"
+"test-corp-addr-4"
+
+"Account Number 11223344"
+"-------------------------------------------------------------------------------"
+"REPORT - AIRTIME DETAILS"
+
+--------------
+"C:"	"1122334455"
+"Subscriber Name:"	"test-value-1"
+"Additional line user name:"	""
+"Sublevel:"	" "
+"Sublevel:"	""
+"Reference 1:"	""
+"Reference 2:"	""
+"Phone"
+"Call"	"Date"	"Time"	"Call Period"	"From"	"Call Type"	"Number Called"	"To"	"Call Length"	"Local Airtime Rate"	"Local Airtime Charges"	"Tax"	"LD Charges"	"LD Tax"	"Additional Call Charges"	"Total"
+1	08-Jan	10:15	W	PIPESTONE MB	OG	2233445566	WINNIPEG MB	7:00	$0.00	$0.00	 	$0.00	 	$0.00	$0.00
+2	08-Jan	17:15	W	PIPESTONE MB	OG	3344556677	VIRDEN MB	4:00	$0.00	$0.00		$0.00		$0.00	$0.00
+"Total"	" "	" "	" "	" "	" "	" "	" "	" "	" "	$0.00	" "	$0.00	" "	$0.00	$0.00
+"Roaming"
+"Call"	"Date"	"Time"	"Period"	"From"	"Call Type"	"Number Called"	"To"	"Call Length"	"Local Airtime Rate"	"Local Airtime Charges"	"Tax"	"LD Charges"	"LD Tax"	"Additional Call Charges"	"Total"
+"Total"	" "	" "	" "	" "	" "	" "	" "	" "	" "		" "		" "
+"Online Dial-Up - Circuit Data"
+"Call"	"Date"	"Time"	"Period"	"From"	"Call Type"	"Number Called"	"To"	"Call Length"	"Local Airtime Rate"	"Local Airtime Charges"	"Tax"	"LD Charges"	"LD Tax"	"Additional Call Charges"	"Total"
+"Total"	" "	" "	" "	" "	" "	" "	" "	" "	" "		" "		" "
+"Private Instant Talk"
+"Date"	"Total Daily Usage"	"Local Airtime"	"LD Charges"	"Total"
+"Total"
+"Group Instant Talk"
+"Date"	"Total Daily Usage"	"Local Airtime"	"LD Charges"	"Total"
+"Total"
+"Video"
+"Call"	"Date"	"Time"	"Call Period"	"From"	"Call Type"	"Number Called"	"To"	"Call Length"	"Local Airtime Rate"	"Local Airtime Charges"	"Tax"	"LD Charges"	"LD Tax"	"Additional Call Charges"	"Total"
+"Total"	" "	" "	" "	" "	" "	" "	" "	" "	" "		" "		" "
+--------------
+"C:"	"4455667788"
+"Subscriber Name:"	"test-value-2"
+"Additional line user name:"	""
+"Sublevel:"	" "
+"Sublevel:"	""
+"Reference 1:"	""
+"Reference 2:"	""
+"Phone"
+"Call"	"Date"	"Time"	"Call Period"	"From"	"Call Type"	"Number Called"	"To"	"Call Length"	"Local Airtime Rate"	"Local Airtime Charges"	"Tax"	"LD Charges"	"LD Tax"	"Additional Call Charges"	"Total"
+1	08-Jan	08:23	W	ELKHORN MB	OG	2233445566	VIRDEN MB	13:00	$0.00	$0.00		$0.00		$0.00	$0.00
+2	08-Jan	15:20	W	ELKHORN MB	OG	3344556677	VIRDEN MB	2:00	$0.00	$0.00		$0.00		$0.00	$0.00
+"Total"	" "	" "	" "	" "	" "	" "	" "	" "	" "	$0.00	" "	$0.00	" "	$0.00	$0.00
+"Roaming"
+"Call"	"Date"	"Time"	"Period"	"From"	"Call Type"	"Number Called"	"To"	"Call Length"	"Local Airtime Rate"	"Local Airtime Charges"	"Tax"	"LD Charges"	"LD Tax"	"Additional Call Charges"	"Total"
+1	24-Jan	07:38	D	USA   	OG	6677889900	SARNIA ON	5:00	$0.00	$20.00	"H"	$0.00	""	$0.00	$20.00
+3	24-Jan	08:55	D	INCOMING   	IN	1234567890	USA   	2:00	$0.00	$0.00	""	$0.00	""	$0.00	$0.00
+"Total"	" "	" "	" "	" "	" "	" "	" "	" "	" "	$20.00	" "	$0.00	" "	$0.00	$20.00
+"Online Dial-Up - Circuit Data"
+"Call"	"Date"	"Time"	"Period"	"From"	"Call Type"	"Number Called"	"To"	"Call Length"	"Local Airtime Rate"	"Local Airtime Charges"	"Tax"	"LD Charges"	"LD Tax"	"Additional Call Charges"	"Total"
+1	24-Jan	07:38	D	USA   	OG	6677889900	SARNIA ON	5:00	$0.00	$20.00	"H"	$0.00	""	$0.00	$20.00
+3	24-Jan	08:55	D	INCOMING   	IN	1234567890	USA   	2:00	$0.00	$0.00	""	$0.00	""	$0.00	$0.00
+"Total"	" "	" "	" "	" "	" "	" "	" "	" "	" "		" "		" "
+"Private Instant Talk"
+"Date"	"Total Daily Usage"	"Local Airtime"	"LD Charges"	"Total"
+"Total"
+"Group Instant Talk"
+"Date"	"Total Daily Usage"	"Local Airtime"	"LD Charges"	"Total"
+"Total"
+"Video"
+"Call"	"Date"	"Time"	"Call Period"	"From"	"Call Type"	"Number Called"	"To"	"Call Length"	"Local Airtime Rate"	"Local Airtime Charges"	"Tax"	"LD Charges"	"LD Tax"	"Additional Call Charges"	"Total"
+1	24-Jan	07:38	D	USA   	OG	6677889900	SARNIA ON	5:00	$0.00	$20.00	"H"	$0.00	""	$0.00	$20.00
+3	24-Jan	08:55	D	INCOMING   	IN	1234567890	USA   	2:00	$0.00	$0.00	""	$0.00	""	$0.00	$0.00
+"Total"	" "	" "	" "	" "	" "	" "	" "	" "	" "		" "		" "

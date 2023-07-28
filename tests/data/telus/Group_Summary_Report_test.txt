@@ -1,0 +1,34 @@
+"test-corp-name-1"	Client No:	"11223344"
+"test-corp-name-2"	Purchase Order No:
+Invoice Date:	06-Feb-23	Unique Invoice No:	"112233445566"
+"test-corp-name-2"
+"test-corp-addr-1"
+"test-corp-addr-2"
+"test-corp-addr-3"
+"test-corp-addr-4"
+
+"Account Number 11223344"
+"-------------------------------------------------------------------------------"
+"REPORT - GROUP SUMMARY"
+
+""	""	""	""	""	""	""	""	""	""	""	""	"Dollar Pooling"	""	""	"Services Not Contributed To Dollar Pooling"
+"Sublevel"	"Sublevel"	"Reference 1"	"Reference 2"	"Prod. Type"	"Unit Number"	"User Name"	"Additional User Name"	"Service Plan Name"	"Service Plan Price"	"Additional Local Airtime"	"Over/Under"	"Contribution To Pool"	"Service Plans Pooled"	"Ser. Pl. Not Pooled"	"Long Distance Charges"	"Roaming Charges"	"Do More Data Services"	"Do More Voice Services"	"Pager Services"	"Value-Added Services"	"Other Charges And Credits"	"Other Fees"	"PST QST HST"	"Subtotal Before GST"	"GST"	"Total"
+Department = test-dept-1
+Cost Center = test-cost-1
+				C	1122334455	test-device-1		Corp Adv MHS w/US $5 0MB	$5.00	$0.00	Under	$0.00	$0.00	$5.00	$0.00	$0.00	$0.00	$0.00	$0.00	$0.00	$0.00	$0.00	$0.00	$5.00	$0.25	$5.25
+				C	2233445566	test-device-2		Corp Adv MHS w/US $5 0MB	$5.00	$0.00	Under	$0.00	$0.00	$5.00	$0.00	$0.00	$0.00	$0.00	$0.00	$0.00	$0.00	$0.00	$0.00	$5.00	$0.25	$5.25
+				C	3344556677	test-device-3		Corp Adv MHS w/US $5 0MB	$5.00	$0.00	Under	$0.00	$0.00	$5.00	$0.00	$0.00	$0.00	$0.00	$0.00	$0.00	$0.00	$0.00	$0.00	$5.00	$0.25	$5.25
+Total for Cost Center : 									$70402.07	$0.00		$0.00	$0.00	$70402.07	$444.55	$1144.00	$9916.05	$1457.50	$0.00	$2130.76	$4555.43	$1100.60	$625.19	$91776.15	$3919.08	$95695.23
+Total for Department: 									$70402.07	$0.00		$0.00	$0.00	$70402.07	$444.55	$1144.00	$9916.05	$1457.50	$0.00	$2130.76	$4555.43	$1100.60	$625.19	$91776.15	$3919.08	$95695.23
+Department = test-dept-2
+Cost Center = test-cost-2
+test-dept-2				C	4455667788	test-device-4		Easy Roam V&D 10GB	$60.67	$0.00	Under	$0.00	$0.00	$60.67	$0.00	$0.00	$0.00	$0.00	$0.00	$0.00	$0.00	$0.00	$4.25	$64.92	$3.03	$67.95
+test-dept-2				C	5566778899	test-device-5		Easy Roam V&D 10GB BYOD	$50.67	$0.00	Under	$0.00	$0.00	$50.67	$0.00	$0.00	$0.00	$0.00	$0.00	$0.00	$0.00	$0.98	$0.00	$51.65	$2.58	$54.23
+test-dept-2				C	6677889900	test-device-6		Easy Roam V&D 10GB	$60.67	$0.00	Under	$0.00	$0.00	$60.67	$0.00	$0.00	$0.00	$56.00	$0.00	$0.00	$0.00	$0.98	$0.00	$117.65	$5.88	$123.53
+Total for Cost Center : 									$4033.98	$0.00		$0.00	$0.00	$4033.98	$8.25	$42.00	$297.90	$264.00	$0.00	$39.00	$0.00	$66.70	$4.25	$4756.08	$222.88	$4978.96
+Total for Department: 									$4033.98	$0.00		$0.00	$0.00	$4033.98	$8.25	$42.00	$297.90	$264.00	$0.00	$39.00	$0.00	$66.70	$4.25	$4756.08	$222.88	$4978.96
+"Total"	""	""	""	""	""	""	""	""	$84240.62	$0.00	""	$0.00	$0.00	$84240.62	$509.20	$1302.00	$11615.50	$1885.00	$0.00	$2403.16	$5139.30	$1328.11	$697.09	$109119.98	$4692.73	$113812.71
+"Dollar Pooling Savings:"	$0.00
+"Account Level Charges and Credit:"	$39.19
+"Account Level Taxes:"	$0.42
+"Total Current Charges:"	$113852.32

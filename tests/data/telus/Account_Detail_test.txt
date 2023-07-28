@@ -1,0 +1,142 @@
+"test-corp-name-1"	Client No:	"11223344"
+"test-corp-name-2"	Purchase Order No:
+Invoice Date:	06-Feb-23	Unique Invoice No:	"112233445566"
+"test-corp-name-2"
+"test-corp-addr-1"
+"test-corp-addr-2"
+"test-corp-addr-3"
+"test-corp-addr-4"
+
+"Account Number 11223344"
+"-------------------------------------------------------------------------------"
+"REPORT - ACCOUNT DETAIL"
+
+"Handset Transperency"
+"Number/Device Information"	"1122334455/IPHONE 12 128GB BLACK"
+"Starting Balance"	$643.00
+"Last Month's Balance"	$0.00
+"Current Balance"	$214.36
+"Monthly Credit"	$-17.86
+"Monthly Balance Adjust"	$0.00
+
+"Handset Transperency"
+"Number/Device Information"	"2233445566/APPLE IPHONE 11 128GB BLACK"
+"Starting Balance"	$630.00
+"Last Month's Balance"	$0.00
+"Current Balance"	$52.50
+"Monthly Credit"	$-17.50
+"Monthly Balance Adjust"	$0.00
+
+"Handset Transperency"
+"Number/Device Information"	"3344556677/SAMSUNG GALAXY S21FE 5G 128GB GRAY"
+"Starting Balance"	$773.00
+"Last Month's Balance"	$0.00
+"Current Balance"	$644.18
+"Monthly Credit"	$-21.47
+"Monthly Balance Adjust"	$0.00
+
+
+"CURRENT CHARGES"
+"Monthly Service Plan"	$84240.62
+"Additional Local Airtime"	$0.00
+"Long Distance Charges"	$509.20
+"Roaming Charges"	$1302.00
+"Do More Data Services"	$11615.50
+"Do More Voice Services"	$1885.00
+"Value-Added Services"	$2403.16
+"Other Charges and Credits"	$5178.49
+"Other Fees"	$1328.11
+"Taxes"	$5390.24
+"Total Current Charges:"	$113852.32
+
+"MONTHLY SERVICE PLAN"	07-Feb-23 to 06-Mar-23
+"Service Plan Name"	"Units"	"Unit Price"	"Total"
+"Corp Adv MHS w/US $5 0MB (16-Jan-23 to 06-Feb-23)"	"2"	$3.50	$7.00
+"Corp Adv Voice 20 (01-Feb-23 to 06-Feb-23)"	"1"	$-4.00	$-4.00
+"Total Monthly Service Plan Charges"	$84240.62
+
+"ADDITIONAL LOCAL AIRTIME"
+"Service"	"Total Airtime"	"Free Airtime"	"Included Airtime"	"Chargeable Airtime"	"Total"
+"Phone (minutes)"	808583:00	3459:00	805124:00	0:00	$0.00
+"Total Additional Local Airtime Charges"	$0.00
+
+"LONG DISTANCE CHARGES"
+"Service"	"Total LD Minutes"	"Free LD Minutes"	"Included LD Minutes"	"Chargeable LD Minutes"	"Total"
+"Domestic Phone"	227672:00	227443:00	0:00	229:00	$38.30
+"US/International Voice Usage"	4763:00	4267:00	0:00	496:00	$470.90
+"Total Long Distance Charges"	$509.20
+
+"ROAMING"
+"Service"	"Roaming Minutes"	"Roaming Charges"	"Roaming LD Minutes"	"Roaming LD Charges"	"Roaming Surcharge"	"Total"
+"US/International Voice Usage"	3120:00	$1100.00	481:00	$202.00	$0.00	$1302.00
+"Total Roaming Charges"	$1302.00
+
+"DO MORE DATA SERVICES"
+"Service"	"Total Events"	"Event Type"	"Total"
+"Text Msg - Received"	"8"	"Msg"	$0.00
+"Text Msg - Sent"	"219591"	"Msg"	$0.00
+"Picture Messaging - Sound Receive"	"35"	"Sound"	$0.00
+"Data Usage - Mobile High Speed"	"2526772320"	"KB"	$0.00
+"CAN to Int'l Text Msg - Sent"	"64"	"Msg"	$25.60
+"Roaming Txt Msg - Received"	"2512"	"Msg"	$0.00
+"Roaming Txt Msg - Sent"	"1422"	"Msg"	$150.00
+"Video Messaging"	"419"	"video"	$0.00
+"Picture Messaging - Video Receive"	"423"	"video"	$0.00
+"Picture Messaging - Pictures"	"14852"	"Pic"	$0.00
+"Picture Messaging - Sounds"	"17"	"Sound"	$0.00
+"US 1X Data Roaming"	"102185291"	"KB"	$7290.00
+"International GPRS Data Roaming"	"16850318"	"KB"	$4114.72
+"Data Usage"	"8908194462"	"KB"	$0.00
+"Application Purchase"	"2"	"event"	$24.68
+"Text Msg - Received"	"256922"	"Msg"	$10.50
+"Picture Messaging - Picture Receive"	"16034"	"Pic"	$0.00
+"CAN to US Text Msg - Sent"	"874"	"Msg"	$0.00
+"Total Do More Data Services Charges"	$11615.50
+
+"DO MORE VOICE SERVICES"
+"Service"	"Total Events"	"Event Type"	"Total"
+"411"	2	DIR	$5.00
+"Days with usage in the US"	1	Day	$0.00
+"Easy Roam INTL"	5	Day	$70.00
+"Total Do More Voice Services Charges"	$1885.00
+
+"PAGER SERVICES"
+"Service"	"Total Messages"	"Included Messages"	"Chargeable Messages"	"Total"
+"Total Pager Charges"	$0.00
+
+"VALUE-ADDED SERVICES"	07-Feb-23 to 06-Mar-23
+"Service"	"Units"	"Total"
+"$0 WSS Managed Service (07-Feb-23 to 06-Mar-23)"	1	$0.00
+"0MB data @0.05$ (07-Feb-23 to 06-Mar-23)"	18	$0.00
+"10GB Shared Data (07-Feb-23 to 06-Mar-23)"	620	$0.00
+"5GB Shareable data (07-Feb-23 to 06-Mar-23)"	816	$0.00
+"Total Value Added Service Charges"	$2403.16
+
+"OTHER CHARGES AND CREDIT"
+"Charge or Credit"	"Total"
+"Device discount repay. - CR"	$-612.32
+"Device discount repay. canc."	$389.92
+"Phone Number Change"	$0.00
+"Total Other Charges and Credits"	$5178.49
+
+"OTHER FEES"
+"Service"	"Units"	"Total"
+"AB 911 Government Fee (27-Jan-23 to 06-Feb-23)"	4027	$1311.19
+"SK Government 911 Fee (07-Feb-23 to 06-Mar-23)"	9	$16.92
+"Other Fees"	$1328.11
+
+"TAXES"
+""	"Total"
+"GST"	$4693.37
+"HST - ON"	$167.79
+"PST - SK"	$35.22
+"Total Taxes"	$5390.24
+
+"Adjustments"
+"PT"	"User"	"Total Adjustment"
+"User Totals"	$0.00
+
+"Account Level Adjustments"	"Date"	"Total Adjustment"
+"Adjusted taxes - HST"	""	$0.00
+"Account Level Totals"	$0.00
+"Total Adjustments"	$0.00
