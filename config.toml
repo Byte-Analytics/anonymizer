@@ -92,6 +92,36 @@ encode_columns = ['Group ID', 'Group name', 'Account number', 'Account name', 'M
 [ATnT.common]
 carrier = 'AT&T'
 
+[ATnT.ade_detail]
+config_class = 'csv-config'
+delimiter = ','
+file_mask = '(\w+ )?Detail( \w+)?\.csv'
+clear_columns = []
+encode_columns = [
+    "Foundation account",
+    "Account number",
+    "Wireless number",
+    "Dialed number",
+]
+
+[ATnT.ade_pooling]
+config_class = 'csv-config'
+delimiter = ','
+file_mask = '(\w+ )?Pooling( \w+)?\.csv'
+clear_columns = ["Wireless number description 1","Wireless number description 2"]
+encode_columns = [
+    "Account and descriptions",
+    "Wireless number and descriptions",
+    "User name",
+    "Account description 1",
+    "Account description 2",
+    "Account number",
+    "Billing account name",
+    "Foundation account",
+    "Foundation account name",
+    "Wireless number",
+]
+
 [ATnT.rawdataoutput_file]
 config_class = 'csv-config'
 delimiter = '|'
