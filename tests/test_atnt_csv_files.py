@@ -11,3 +11,13 @@ class TestATnTRawDataOutputFile(ConfigTester, TableDataLoader):
         for entry in input_encoded_data:
             if entry['Section_2'].strip() == 'User Name':
                 assert entry['Section_3'].strip() != 'TEST_USER_NAME'
+
+
+class TestATnTADEDetailOutputFile(ConfigTester, TableDataLoader):
+    def get_file_path(self) -> FilePath:
+        return self.data_directory / 'at&t/ENC1 Detail Mar.csv'
+
+
+class TestATnTADEPoolingOutputFile(ConfigTester, TableDataLoader):
+    def get_file_path(self) -> FilePath:
+        return self.data_directory / 'at&t/ENC1 Pooling Mar.csv'
